@@ -1,0 +1,19 @@
+<view class="page">
+  <scroll-view scroll-y class="chat-list" scroll-into-view="{{toView}}">
+    <block wx:for="{{messages}}" wx:key="index">
+      <view id="msg-{{index}}" class="message-row {{item.isUser ? 'row-reverse' : ''}}">
+        <t-avatar wx:if="{{!item.isUser}}" icon="robot" size="medium" />
+        <t-avatar wx:if="{{item.isUser}}" icon="user" size="medium" />
+        
+        <view class="bubble {{item.isUser ? 'bubble-user' : 'bubble-bot'}}">
+          <text>{{item.text}}</text>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+  
+  <view class="footer">
+    <t-input placeholder="{{t.chatbot.placeholder}}" value="{{inputValue}}" bindchange="onInputChange" borderless style="flex: 1; background: #f3f3f3; border-radius: 40rpx; padding: 0 24rpx;" />
+    <t-button theme="primary" shape="circle" icon="send" bindtap="onSend" style="margin-left: 16rpx;" />
+  </view>
+</view>

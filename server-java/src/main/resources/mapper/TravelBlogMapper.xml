@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelgd.mapper.TravelBlogMapper">
+
+    <resultMap id="blogMap" type="com.travelgd.model.TravelBlog">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="authorNickname" column="author_nickname"/>
+        <result property="authorAvatarUrl" column="author_avatar_url"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="images" column="images"
+                typeHandler="com.travelgd.handler.JsonListStringHandler"/>
+        <result property="likes" column="likes"/>
+        <result property="likedByMe" column="liked_by_me"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="blogSelect">
+        SELECT b.id, b.user_id, u.nickname AS author_nickname, u.avatar_url AS author_avatar_url,
+               b.title, b.content, b.images, b.likes, b.created_at,
+               <if test="viewerId != null">
+                   EXISTS(SELECT 1 FROM blog_likes bl WHERE bl.blog_id = b.id AND bl.user_id = #{viewerId}) AS liked_by_me
+               </if>
+               <if test="viewerId == null">
+                   FALSE AS liked_by_me
+               </if>
+        FROM travel_blogs b
+        JOIN users u ON u.id = b.user_id
+    </sql>
+
+    <select id="findAll" resultMap="blogMap">
+        <include refid="blogSelect"/>
+        ORDER BY b.created_at DESC
+    </select>
+
+    <select id="findById" resultMap="blogMap">
+        <include refid="blogSelect"/>
+        WHERE b.id = #{id}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO travel_blogs (user_id, title, content, images)
+        VALUES (#{userId}, #{title}, #{content}, #{images, typeHandler=com.travelgd.handler.JsonListStringHandler})
+    </insert>
+
+    <update id="incrementLikes">
+        UPDATE travel_blogs SET likes = likes + 1 WHERE id = #{id}
+    </update>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM travel_blogs WHERE user_id = #{userId}
+    </select>
+
+    <insert id="addLike">
+        INSERT IGNORE INTO blog_likes (user_id, blog_id) VALUES (#{userId}, #{blogId})
+    </insert>
+</mapper>

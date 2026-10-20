@@ -1,0 +1,72 @@
+<view class="page">
+  <!-- Header -->
+  <view class="header">
+    <view class="user-info">
+      <view class="avatar-container" bindtap="onEditAvatar" wx:if="{{isLoggedIn}}">
+        <t-avatar image="{{userInfo.avatarUrl}}" size="large" class="avatar" />
+        <view class="edit-badge">
+          <t-icon name="edit" size="24rpx" color="#fff" />
+        </view>
+      </view>
+      <t-avatar wx:else icon="user" size="large" class="avatar" />
+      <view class="user-text">
+        <view class="username">{{userInfo.nickName}}</view>
+        <view class="user-tag">{{userTag === 'Member' ? t.profile.member : (userTag === 'Visitor' ? t.profile.visitor : t.profile.guest)}}</view>
+        <t-button wx:if="{{!isLoggedIn}}" class="login-btn" theme="light" size="small" loading="{{loading}}" bindtap="onRegister">{{t.profile.login}}</t-button>
+      </view>
+    </view>
+    <t-icon name="setting" size="48rpx" color="#fff" />
+  </view>
+
+  <!-- Stats Grid -->
+  <view class="section">
+    <t-grid column="{{4}}" theme="card" bind:click="onTapGridItem">
+      <t-grid-item text="{{t.profile.favorites}} ({{stats.favorites}})" icon="heart" />
+      <t-grid-item text="{{t.profile.history}} ({{stats.history}})" icon="time" />
+      <t-grid-item text="{{t.profile.posts}} ({{stats.posts}})" icon="image" />
+      <t-grid-item text="{{t.profile.coupons}} ({{stats.coupons}})" icon="discount" />
+    </t-grid>
+  </view>
+
+  <!-- Menu List -->
+  <view class="section">
+    <t-cell-group theme="card">
+      <t-cell title="{{t.profile.myPlans}}" left-icon="map" hover arrow url="/pages/user/routeInput/index" />
+      <t-cell title="{{t.profile.language}}" left-icon="translate" hover arrow note="{{t.common.languageName}}" bind:click="onTapLanguage" />
+      <t-cell title="{{t.profile.merchantCenter}}" left-icon="shop" hover arrow url="/pages/merchant/index" />
+      <t-cell title="{{t.profile.adminLogin}}" left-icon="user-circle" hover arrow url="/pages/admin/knowledge/index" />
+    </t-cell-group>
+  </view>
+
+  <view class="section">
+    <view class="section-title">{{t.profile.posterHistory}}</view>
+    <view wx:if="{{!isLoggedIn}}" class="section-empty">{{t.profile.loginView}}</view>
+    <view wx:elif="{{posterLoading}}" class="section-empty">{{t.common.loading}}</view>
+    <view wx:elif="{{posterHistory.length === 0}}" class="section-empty">{{t.profile.emptyHistory}}</view>
+    <view wx:else class="poster-list">
+      <view class="poster-item" wx:for="{{posterHistory}}" wx:key="id" data-url="{{item.imageUrl}}" bindtap="onPreviewPosterHistory">
+        <t-image src="{{item.imageUrl}}" mode="aspectFill" class="poster-image" />
+        <view class="poster-meta">
+          <view class="poster-prompt">{{item.prompt}}</view>
+          <view class="poster-time">{{item.displayTime}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <t-cell-group theme="card">
+      <t-cell title="{{t.profile.help}}" left-icon="help-circle" hover arrow bind:click="onTapHelp" />
+      <t-cell title="{{t.profile.about}}" left-icon="info-circle" hover arrow bind:click="onTapAbout" />
+    </t-cell-group>
+  </view>
+
+  <view class="footer-btn">
+    <t-button theme="light" block size="large" bind:tap="onLogout" wx:if="{{isLoggedIn}}">{{t.profile.logout}}</t-button>
+    <t-button theme="primary" block size="large" bind:tap="onRegister" wx:else loading="{{loading}}">{{t.profile.login}}</t-button>
+    <view style="margin-top: 24rpx;">
+      <t-button theme="default" variant="text" size="small" bind:tap="onInitDB">{{t.profile.initDb}}</t-button>
+      <t-button theme="default" variant="text" size="small" bind:tap="onSeedData">{{t.profile.seedData}}</t-button>
+    </view>
+  </view>
+</view>

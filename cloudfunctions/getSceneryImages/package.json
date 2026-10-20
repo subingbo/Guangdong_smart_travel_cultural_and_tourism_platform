@@ -1,0 +1,9 @@
+{
+  "name": "getSceneryImages",
+  "version": "1.0.0",
+  "description": "List images from storage",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col font-sans">
+
+    <!-- Header with Back Button -->
+    <div class="bg-white p-4 pt-12 shadow-sm sticky top-0 z-10 flex items-center gap-4">
+        <a href="merchant.html" class="text-gray-600 hover:text-gray-900">
+            <i class="ri-arrow-left-line text-2xl"></i>
+        </a>
+        <h1 class="text-lg font-bold text-gray-800">Content Generator</h1>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 p-4 pb-8 overflow-y-auto">
+        
+        <!-- Input Area -->
+        <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+            <label class="block text-sm font-bold text-gray-700 mb-2">Original Text (CN)</label>
+            <textarea class="w-full h-32 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:border-blue-500 text-sm" placeholder="Enter your promotional text here..."></textarea>
+            <div class="text-right text-xs text-gray-400 mt-1">0/500</div>
+        </div>
+
+        <!-- Language Selection -->
+        <div class="bg-white p-4 rounded-xl shadow-sm mb-6">
+            <label class="block text-sm font-bold text-gray-700 mb-3">Target Languages</label>
+            <div class="flex flex-wrap gap-2">
+                <button class="px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 text-xs font-medium border border-blue-200">English</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-50 text-gray-600 text-xs font-medium border border-gray-200">Japanese</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-50 text-gray-600 text-xs font-medium border border-gray-200">Korean</button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-50 text-gray-600 text-xs font-medium border border-gray-200">Spanish</button>
+            </div>
+        </div>
+
+        <!-- Style Selection -->
+        <div class="bg-white p-4 rounded-xl shadow-sm mb-8">
+            <label class="block text-sm font-bold text-gray-700 mb-3">Tone</label>
+            <div class="flex gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="tone" class="w-4 h-4 text-blue-600" checked>
+                    <span class="text-sm text-gray-600">Formal</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="tone" class="w-4 h-4 text-blue-600">
+                    <span class="text-sm text-gray-600">Casual</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="tone" class="w-4 h-4 text-blue-600">
+                    <span class="text-sm text-gray-600">Creative</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button onclick="document.getElementById('result-area').classList.remove('hidden')" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-blue-700 transition active:scale-95">
+            Generate Content
+        </button>
+
+        <!-- Result Area (Hidden by default) -->
+        <div id="result-area" class="mt-8 hidden animate-fade-in">
+            <h3 class="font-bold text-gray-800 mb-3">Generated Result</h3>
+            <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded">English</span>
+                    <button class="text-gray-400 hover:text-gray-600"><i class="ri-file-copy-line"></i></button>
+                </div>
+                <p class="text-sm text-gray-700 leading-relaxed">
+                    Welcome to our restaurant! Experience the authentic taste of Cantonese Dim Sum. Every dish is handcrafted with fresh ingredients to bring you the best culinary delight. Don't miss our signature Shrimp Dumplings!
+                </p>
+            </div>
+            
+            <button class="w-full mt-4 bg-white border border-blue-600 text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition">
+                Create Poster
+            </button>
+        </div>
+
+    </div>
+
+</body>
+</html>

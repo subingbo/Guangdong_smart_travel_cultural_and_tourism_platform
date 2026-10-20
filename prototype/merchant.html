@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans">
+
+    <!-- Header -->
+    <div class="bg-white p-4 pt-12 shadow-sm z-10 sticky top-0">
+        <h1 class="text-xl font-bold text-gray-800">Merchant Assistant</h1>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-y-auto pb-24 p-4">
+        
+        <!-- Welcome Card -->
+        <div class="bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl p-6 text-white mb-6 shadow-lg">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <i class="ri-store-3-fill text-2xl"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-lg">Yum Cha Palace</h2>
+                    <p class="text-blue-100 text-sm">Verified Merchant</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tools Grid -->
+        <h3 class="font-bold text-gray-700 mb-3">AI Tools</h3>
+        <div class="grid grid-cols-1 gap-4">
+            
+            <!-- Content Gen -->
+            <a href="merchant_gen.html" class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 active:scale-95 transition">
+                <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center">
+                    <i class="ri-quill-pen-line text-2xl"></i>
+                </div>
+                <div class="flex-1">
+                    <h4 class="font-bold text-gray-800">Content Generator</h4>
+                    <p class="text-gray-500 text-xs">Create multi-language promo posts</p>
+                </div>
+                <i class="ri-arrow-right-s-line text-gray-300"></i>
+            </a>
+
+            <!-- Chatbot -->
+            <a href="merchant_chat.html" class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 active:scale-95 transition">
+                <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                    <i class="ri-chat-smile-3-line text-2xl"></i>
+                </div>
+                <div class="flex-1">
+                    <h4 class="font-bold text-gray-800">Customer Service AI</h4>
+                    <p class="text-gray-500 text-xs">Auto-reply to tourist queries</p>
+                </div>
+                <i class="ri-arrow-right-s-line text-gray-300"></i>
+            </a>
+
+            <!-- Menu Scan -->
+            <a href="merchant_scan.html" class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 active:scale-95 transition">
+                <div class="w-12 h-12 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center">
+                    <i class="ri-camera-lens-line text-2xl"></i>
+                </div>
+                <div class="flex-1">
+                    <h4 class="font-bold text-gray-800">Menu Translator</h4>
+                    <p class="text-gray-500 text-xs">Scan & explain dishes</p>
+                </div>
+                <i class="ri-arrow-right-s-line text-gray-300"></i>
+            </a>
+
+        </div>
+
+        <!-- Analytics Placeholder -->
+        <h3 class="font-bold text-gray-700 mb-3 mt-6">Overview</h3>
+        <div class="bg-white p-4 rounded-xl shadow-sm">
+            <div class="flex justify-between items-center border-b border-gray-100 pb-4 mb-4">
+                <span class="text-gray-500 text-sm">Today's Visitors</span>
+                <span class="font-bold text-xl text-gray-800">128</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-gray-500 text-sm">AI Interactions</span>
+                <span class="font-bold text-xl text-gray-800">45</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom TabBar -->
+    <div class="bg-white border-t border-gray-200 fixed bottom-0 w-full pb-6 pt-2 px-4 z-50">
+        <div class="flex justify-between items-end">
+            <!-- Merchant (Active) -->
+            <div class="flex flex-col items-center gap-1 w-12 text-blue-600">
+                <i class="ri-store-2-fill text-2xl"></i>
+                <span class="text-[10px] font-bold">Merchant</span>
+            </div>
+            <!-- Route -->
+            <a href="route.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-map-2-line text-2xl"></i>
+                <span class="text-[10px]">Route</span>
+            </a>
+            <!-- Home (Center) -->
+            <div class="flex flex-col items-center -mt-8 relative">
+                <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg border-4 border-gray-50">
+                    <a href="home.html">
+                        <i class="ri-home-4-line text-2xl text-gray-400"></i>
+                    </a>
+                </div>
+                <span class="text-[10px] text-gray-400 font-medium mt-1">Home</span>
+            </div>
+            <!-- Blog -->
+            <a href="blog.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-article-line text-2xl"></i>
+                <span class="text-[10px]">Blog</span>
+            </a>
+            <!-- Guide -->
+            <a href="guide.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-robot-line text-2xl"></i>
+                <span class="text-[10px]">Guide</span>
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

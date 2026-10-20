@@ -1,0 +1,106 @@
+<view class="page">
+  <view class="header">
+    <view class="title">{{t.blog.title}}</view>
+    <t-button size="small" variant="text" icon="user">{{t.blog.myPosts}}</t-button>
+  </view>
+
+  <view class="create-card">
+    <view class="card-header">
+      <t-icon name="magic-wand" size="48rpx" color="#7B61FF" style="margin-right: 16rpx;" />
+      <text style="font-weight: bold; color: #333;">{{t.blog.aiWriter}}</text>
+    </view>
+    <view class="upload-area" bindtap="onChooseImage">
+      <block wx:if="{{tempImage}}">
+        <image src="{{tempImage}}" mode="aspectFill" class="preview-img" />
+      </block>
+      <block wx:else>
+        <t-icon name="image-add" size="64rpx" color="#ccc" style="margin-bottom: 16rpx;" />
+        <view class="upload-text">{{t.blog.upload}}</view>
+        <view class="upload-subtext">{{t.blog.aiDesc}}</view>
+      </block>
+    </view>
+    <t-button 
+      theme="primary" 
+      block 
+      loading="{{loading}}"
+      disabled="{{!tempImage}}"
+      bindtap="onGenerate"
+      style="margin-top: 24rpx; --td-button-primary-bg-color: #7B61FF; --td-button-primary-border-color: #7B61FF;"
+    >{{t.blog.generate}}</t-button>
+  </view>
+
+  <view class="section-title">{{t.blog.community}}</view>
+
+  <!-- Generated Blog Preview -->
+  <view class="blog-card" wx:if="{{generatedBlog}}">
+    <view class="blog-img-container">
+      <image src="{{generatedBlog.image}}" mode="aspectFill" class="blog-img" />
+      <view class="location-tag">
+        <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> AI Generated
+      </view>
+    </view>
+    <view class="blog-content">
+      <view class="user-info">
+        <t-avatar icon="user" size="small" />
+        <text class="username">Me</text>
+        <text class="dot">•</text>
+        <text class="time">Just now</text>
+      </view>
+      <view class="blog-title">{{generatedBlog.title}}</view>
+      <view class="blog-desc">{{generatedBlog.content}}</view>
+      <view class="actions">
+        <view class="action-item"><t-icon name="heart" style="margin-right: 8rpx;" /> 0</view>
+        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> 0</view>
+        <view class="action-item share"><t-icon name="share" /></view>
+      </view>
+    </view>
+  </view>
+
+  <view class="blog-card">
+    <view class="blog-img-container">
+      <t-image src="https://images.unsplash.com/photo-1596627680004-9273c3866297?q=80&w=1000&auto=format&fit=crop" mode="aspectFill" width="100%" height="300rpx" class="blog-img" />
+      <view class="location-tag">
+        <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> {{t.blog.cantonTower}}
+      </view>
+    </view>
+    <view class="blog-content">
+      <view class="user-info">
+        <t-avatar icon="user" size="small" />
+        <text class="username">Annie L.</text>
+        <text class="dot">•</text>
+        <text class="time">2{{t.blog.hours}} {{t.blog.ago}}</text>
+      </view>
+      <view class="blog-title">{{t.blog.blog1Title}}</view>
+      <view class="blog-desc">{{t.blog.blog1Desc}}</view>
+      <view class="actions">
+        <view class="action-item"><t-icon name="heart" style="margin-right: 8rpx;" /> 245</view>
+        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> 18</view>
+        <view class="action-item share"><t-icon name="share" /></view>
+      </view>
+    </view>
+  </view>
+  
+  <view class="blog-card">
+    <view class="blog-img-container">
+      <t-image src="https://images.unsplash.com/photo-1565557623262-b51c2513a641?q=80&w=1000&auto=format&fit=crop" mode="aspectFill" width="100%" height="300rpx" class="blog-img" />
+      <view class="location-tag">
+        <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> {{t.blog.shamian}}
+      </view>
+    </view>
+    <view class="blog-content">
+      <view class="user-info">
+        <t-avatar icon="user" size="small" />
+        <text class="username">Bob M.</text>
+        <text class="dot">•</text>
+        <text class="time">5h ago</text>
+      </view>
+      <view class="blog-title">{{t.blog.blog2Title}}</view>
+      <view class="blog-desc">{{t.blog.blog2Desc}}</view>
+      <view class="actions">
+        <view class="action-item"><t-icon name="heart" style="margin-right: 8rpx;" /> 120</view>
+        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> 5</view>
+        <view class="action-item share"><t-icon name="share" /></view>
+      </view>
+    </view>
+  </view>
+</view>

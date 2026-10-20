@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        /* Hide scrollbar for swiper */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans">
+
+    <!-- Top Area: Welcome -->
+    <div class="bg-blue-600 text-white p-6 pt-12 rounded-b-3xl shadow-md z-10">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h1 class="text-2xl font-bold">Welcome to Guangdong</h1>
+                <p class="text-blue-100 text-sm">Explore Lingnan Culture with AI</p>
+            </div>
+            <button class="bg-white/20 px-3 py-1 rounded-full text-xs backdrop-blur-sm">EN/CN</button>
+        </div>
+    </div>
+
+    <!-- Main Content Scroll Area -->
+    <div class="flex-1 overflow-y-auto pb-24 -mt-4 pt-6">
+        
+        <!-- Swiper (Horizontal Scroll) -->
+        <div class="px-4 mb-6">
+            <div class="flex overflow-x-auto gap-4 no-scrollbar snap-x snap-mandatory">
+                <!-- Slide 1 -->
+                <div class="min-w-full h-48 bg-cover bg-center rounded-2xl shadow-lg snap-center relative" style="background-image: url('https://images.unsplash.com/photo-1599571234909-29ed5d1321d6?q=80&w=1000&auto=format&fit=crop');">
+                    <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl">
+                        <h3 class="text-white font-bold text-lg">Canton Tower</h3>
+                        <p class="text-white/80 text-xs">Guangzhou · Modern Landmark</p>
+                    </div>
+                </div>
+                <!-- Slide 2 -->
+                <div class="min-w-full h-48 bg-cover bg-center rounded-2xl shadow-lg snap-center relative" style="background-image: url('https://images.unsplash.com/photo-1547822281-22442d76378e?q=80&w=1000&auto=format&fit=crop');">
+                    <div class="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent rounded-b-2xl">
+                        <h3 class="text-white font-bold text-lg">Chen Clan Ancestral Hall</h3>
+                        <p class="text-white/80 text-xs">Guangzhou · Folk Art Museum</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Indicators -->
+            <div class="flex justify-center gap-1 mt-2">
+                <div class="w-4 h-1 bg-blue-600 rounded-full"></div>
+                <div class="w-1 h-1 bg-gray-300 rounded-full"></div>
+                <div class="w-1 h-1 bg-gray-300 rounded-full"></div>
+            </div>
+        </div>
+
+        <!-- Grid Menu -->
+        <div class="px-4 mb-8">
+            <h2 class="text-gray-800 font-bold mb-3 text-lg">Explore</h2>
+            <div class="grid grid-cols-2 gap-3">
+                <!-- Route -->
+                <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 active:bg-gray-100 transition">
+                    <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                        <i class="ri-map-pin-user-fill text-xl"></i>
+                    </div>
+                    <span class="text-gray-700 font-medium text-sm">Routes</span>
+                </div>
+                <!-- Menu -->
+                <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 active:bg-gray-100 transition">
+                    <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center">
+                        <i class="ri-translate-2 text-xl"></i>
+                    </div>
+                    <span class="text-gray-700 font-medium text-sm">Menu Trans</span>
+                </div>
+                <!-- Blog -->
+                <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 active:bg-gray-100 transition">
+                    <div class="w-10 h-10 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center">
+                        <i class="ri-book-open-fill text-xl"></i>
+                    </div>
+                    <span class="text-gray-700 font-medium text-sm">Travel Blog</span>
+                </div>
+                <!-- AI Guide -->
+                <div class="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 active:bg-gray-100 transition">
+                    <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                        <i class="ri-robot-fill text-xl"></i>
+                    </div>
+                    <span class="text-gray-700 font-medium text-sm">AI Guide</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Recommendation -->
+        <div class="px-4">
+            <h2 class="text-gray-800 font-bold mb-3 text-lg">Today's Pick</h2>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden flex">
+                <div class="w-1/3 h-24 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1597239925257-2c9749177114?q=80&w=300&auto=format&fit=crop');"></div>
+                <div class="p-3 flex-1 flex flex-col justify-center">
+                    <h4 class="font-bold text-gray-800">Yum Cha Culture</h4>
+                    <p class="text-gray-500 text-xs mt-1 line-clamp-2">Experience the traditional Cantonese morning tea lifestyle.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom TabBar -->
+    <div class="bg-white border-t border-gray-200 fixed bottom-0 w-full pb-6 pt-2 px-4 z-50">
+        <div class="flex justify-between items-end">
+            <!-- Merchant -->
+            <a href="merchant.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-store-2-line text-2xl"></i>
+                <span class="text-[10px]">Merchant</span>
+            </a>
+            <!-- Route -->
+            <a href="route.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-map-2-line text-2xl"></i>
+                <span class="text-[10px]">Route</span>
+            </a>
+            <!-- Home (Center) -->
+            <div class="flex flex-col items-center -mt-8 relative">
+                <div class="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-200 border-4 border-gray-50">
+                    <i class="ri-home-4-fill text-2xl text-white"></i>
+                </div>
+                <span class="text-[10px] text-blue-600 font-bold mt-1">Home</span>
+            </div>
+            <!-- Blog -->
+            <a href="blog.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-article-line text-2xl"></i>
+                <span class="text-[10px]">Blog</span>
+            </a>
+            <!-- Guide -->
+            <a href="guide.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-robot-line text-2xl"></i>
+                <span class="text-[10px]">Guide</span>
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

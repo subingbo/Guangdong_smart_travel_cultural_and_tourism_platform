@@ -1,0 +1,807 @@
+openapi: 3.0.3
+info:
+  title: Travel Guangdong API (tourist flow)
+  description: |
+    Single API contract implemented by both server-java (Spring Boot, port 8080, canonical)
+    and server-go (Gin, port 8081, learning twin). Both backends share the same MySQL
+    database and must return identical paths, fields and status codes.
+
+    All responses use the unified envelope:
+    `{ "success": true, "data": ..., "message": "" }`
+    Errors use the same envelope with `success: false` and an appropriate HTTP status code.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api
+    description: Spring Boot (canonical)
+  - url: http://localhost:8081/api
+    description: Go / Gin (learning twin)
+tags:
+  - name: auth
+  - name: me
+  - name: scenics
+  - name: places
+  - name: favorites
+  - name: routes
+  - name: blogs
+  - name: guide
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          description: Payload, shape depends on endpoint.
+        message:
+          type: string
+          description: Empty on success, error text on failure.
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+        language:
+          type: string
+          enum: [en, zh]
+
+    UserStats:
+      type: object
+      properties:
+        favorites:
+          type: integer
+        routes:
+          type: integer
+        posts:
+          type: integer
+
+    ScenicImage:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        imageUrl:
+          type: string
+        titleCn:
+          type: string
+        titleEn:
+          type: string
+        location:
+          type: string
+        tag:
+          type: string
+        descriptionCn:
+          type: string
+        descriptionEn:
+          type: string
+
+    Place:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nameCn:
+          type: string
+        nameEn:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        tags:
+          type: array
+          items:
+            type: string
+        indoor:
+          type: boolean
+        duration:
+          type: integer
+          description: Suggested visit duration in minutes.
+        descriptionCn:
+          type: string
+        descriptionEn:
+          type: string
+
+    Blog:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        author:
+          type: object
+          properties:
+            nickname:
+              type: string
+            avatarUrl:
+              type: string
+        title:
+          type: string
+        content:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        likes:
+          type: integer
+        likedByMe:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    RouteWaypoint:
+      type: object
+      properties:
+        name:
+          type: string
+        nameEn:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        stayTime:
+          type: string
+          example: '2h'
+        description:
+          type: string
+
+    Route:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        routeName:
+          type: string
+        durationDays:
+          type: integer
+        totalDistance:
+          type: string
+          example: '25km'
+        mode:
+          type: string
+          enum: [driving, walking, bicycling, transit]
+        pace:
+          type: string
+          enum: [relaxed, balanced, packed]
+        interests:
+          type: array
+          items:
+            type: string
+        waypoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteWaypoint'
+        polyline:
+          type: array
+          items:
+            type: object
+            properties:
+              lat:
+                type: number
+              lng:
+                type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    RouteGenerateRequest:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 7
+        interests:
+          type: array
+          items:
+            type: string
+          example: [foodie, history]
+        pace:
+          type: string
+          enum: [relaxed, balanced, packed]
+          default: balanced
+        mode:
+          type: string
+          enum: [driving, walking, bicycling, transit]
+          default: driving
+
+    GuideMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    GuideSession:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuideMessage'
+
+    GuideChatRequest:
+      type: object
+      required: [question]
+      properties:
+        sessionId:
+          type: integer
+          format: int64
+          description: Omit to start a new session.
+        question:
+          type: string
+
+  responses:
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      security: []
+      summary: Register with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                password:
+                  type: string
+                  minLength: 6
+                nickname:
+                  type: string
+      responses:
+        '201':
+          description: Registered, returns token and user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      security: []
+      summary: Login, returns JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /me:
+    get:
+      tags: [me]
+      summary: Current user profile
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Error'
+    put:
+      tags: [me]
+      summary: Update profile (nickname, avatarUrl, language)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                avatarUrl:
+                  type: string
+                language:
+                  type: string
+                  enum: [en, zh]
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+
+  /me/stats:
+    get:
+      tags: [me]
+      summary: Counts of favorites, saved routes and posts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserStats'
+
+  /scenics:
+    get:
+      tags: [scenics]
+      security: []
+      summary: Carousel scenic images (public)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ScenicImage'
+
+  /scenics/{id}:
+    get:
+      tags: [scenics]
+      security: []
+      summary: Scenic image detail (public)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /places:
+    get:
+      tags: [places]
+      security: []
+      summary: List places, optional tag filter (public)
+      parameters:
+        - name: tag
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Place'
+
+  /places/{id}:
+    get:
+      tags: [places]
+      security: []
+      summary: Place detail (public)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /favorites:
+    get:
+      tags: [favorites]
+      summary: List my favorite places
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Place'
+    post:
+      tags: [favorites]
+      summary: Add a place to favorites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [placeId]
+              properties:
+                placeId:
+                  type: integer
+                  format: int64
+      responses:
+        '201':
+          description: Added
+        '409':
+          description: Already favorited
+          $ref: '#/components/responses/Error'
+
+  /favorites/{placeId}:
+    delete:
+      tags: [favorites]
+      summary: Remove a place from favorites
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Removed
+
+  /routes/generate:
+    post:
+      tags: [routes]
+      summary: AI-generate a personalized route, persist and return it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteGenerateRequest'
+      responses:
+        '200':
+          description: Generated route
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Route'
+        '502':
+          description: AI provider error
+          $ref: '#/components/responses/Error'
+
+  /routes:
+    get:
+      tags: [routes]
+      summary: My saved routes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Route'
+
+  /routes/{id}:
+    get:
+      tags: [routes]
+      summary: Route detail (own only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /blogs:
+    get:
+      tags: [blogs]
+      security: []
+      summary: Blog feed (public)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Blog'
+    post:
+      tags: [blogs]
+      summary: Publish a blog post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Blog'
+
+  /blogs/draft:
+    post:
+      tags: [blogs]
+      summary: AI-draft a blog post from a topic or notes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topic]
+              properties:
+                topic:
+                  type: string
+      responses:
+        '200':
+          description: Draft text and suggested title
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          title:
+                            type: string
+                          content:
+                            type: string
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /blogs/{id}:
+    get:
+      tags: [blogs]
+      security: []
+      summary: Blog detail (public)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /blogs/{id}/like:
+    post:
+      tags: [blogs]
+      summary: Like a blog post (idempotent per request, increments counter)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: New like count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          likes:
+                            type: integer
+
+  /guide/chat:
+    post:
+      tags: [guide]
+      summary: Send a question to the AI guide; creates session if sessionId omitted
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuideChatRequest'
+      responses:
+        '200':
+          description: Assistant reply
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          sessionId:
+                            type: integer
+                            format: int64
+                          reply:
+                            type: string
+        '502':
+          $ref: '#/components/responses/Error'
+
+  /guide/sessions/{id}:
+    get:
+      tags: [guide]
+      summary: Session with full message history (own only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/GuideSession'
+        '404':
+          $ref: '#/components/responses/Error'

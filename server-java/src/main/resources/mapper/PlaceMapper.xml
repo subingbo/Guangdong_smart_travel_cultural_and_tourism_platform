@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelgd.mapper.PlaceMapper">
+
+    <resultMap id="placeMap" type="com.travelgd.model.Place">
+        <id property="id" column="id"/>
+        <result property="nameCn" column="name_cn"/>
+        <result property="nameEn" column="name_en"/>
+        <result property="lat" column="lat"/>
+        <result property="lng" column="lng"/>
+        <result property="tags" column="tags"
+                typeHandler="com.travelgd.handler.JsonListStringHandler"/>
+        <result property="indoor" column="indoor"/>
+        <result property="duration" column="duration"/>
+        <result property="descriptionCn" column="description_cn"/>
+        <result property="descriptionEn" column="description_en"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="placeMap">
+        SELECT * FROM places
+        <where>
+            <if test="tag != null and tag != ''">
+                JSON_CONTAINS(tags, JSON_QUOTE(#{tag}))
+            </if>
+        </where>
+        ORDER BY id ASC
+    </select>
+
+    <select id="findById" resultMap="placeMap">
+        SELECT * FROM places WHERE id = #{id}
+    </select>
+</mapper>

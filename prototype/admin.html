@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Base Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col font-sans">
+
+    <!-- Header -->
+    <div class="bg-white p-4 pt-12 shadow-sm sticky top-0 z-10 flex justify-between items-center border-b border-gray-200">
+        <h1 class="text-lg font-bold text-gray-800">Knowledge Base</h1>
+        <div class="flex gap-2">
+            <button class="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600"><i class="ri-search-line"></i></button>
+            <button class="p-2 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"><i class="ri-add-line"></i></button>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="bg-white p-2 flex gap-2 overflow-x-auto border-b border-gray-100 no-scrollbar">
+        <button class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-200 whitespace-nowrap">All</button>
+        <button class="px-3 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-200 whitespace-nowrap">Attractions</button>
+        <button class="px-3 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-200 whitespace-nowrap">Food</button>
+        <button class="px-3 py-1 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-200 whitespace-nowrap">Culture</button>
+    </div>
+
+    <!-- List Content -->
+    <div class="flex-1 p-4 pb-8 overflow-y-auto space-y-3">
+        
+        <!-- Item 1 -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-3">
+            <div class="w-16 h-16 bg-gray-200 rounded-lg bg-cover bg-center flex-shrink-0" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Five_Rams_Statue.jpg/800px-Five_Rams_Statue.jpg');"></div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-start mb-1">
+                    <h3 class="font-bold text-gray-800 text-sm truncate">Five Rams Statue</h3>
+                    <span class="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded">Outdoor</span>
+                </div>
+                <p class="text-xs text-gray-500 truncate">Category: Attraction · 1-2 Hours</p>
+                <div class="flex gap-1 mt-2">
+                    <span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded">History</span>
+                    <span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded">Landmark</span>
+                </div>
+            </div>
+            <div class="flex flex-col justify-between items-end">
+                <button class="text-gray-400 hover:text-blue-600"><i class="ri-edit-line"></i></button>
+                <button class="text-gray-400 hover:text-red-600"><i class="ri-delete-bin-line"></i></button>
+            </div>
+        </div>
+
+        <!-- Item 2 -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-3">
+            <div class="w-16 h-16 bg-gray-200 rounded-lg bg-cover bg-center flex-shrink-0" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Har_gow.jpg/1200px-Har_gow.jpg');"></div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-start mb-1">
+                    <h3 class="font-bold text-gray-800 text-sm truncate">Shrimp Dumpling</h3>
+                    <span class="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0.5 rounded">Food</span>
+                </div>
+                <p class="text-xs text-gray-500 truncate">Category: Dim Sum · < 1 Hour</p>
+                <div class="flex gap-1 mt-2">
+                    <span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded">Classic</span>
+                    <span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded">Seafood</span>
+                </div>
+            </div>
+            <div class="flex flex-col justify-between items-end">
+                <button class="text-gray-400 hover:text-blue-600"><i class="ri-edit-line"></i></button>
+                <button class="text-gray-400 hover:text-red-600"><i class="ri-delete-bin-line"></i></button>
+            </div>
+        </div>
+
+        <!-- Item 3 -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-3">
+            <div class="w-16 h-16 bg-gray-200 rounded-lg bg-cover bg-center flex-shrink-0" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Map_of_Guangzhou.jpg/1200px-Map_of_Guangzhou.jpg');"></div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-start mb-1">
+                    <h3 class="font-bold text-gray-800 text-sm truncate">Cantonese Opera</h3>
+                    <span class="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded">Culture</span>
+                </div>
+                <p class="text-xs text-gray-500 truncate">Category: Art · 2-3 Hours</p>
+                <div class="flex gap-1 mt-2">
+                    <span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded">Music</span>
+                    <span class="bg-gray-100 text-gray-500 text-[10px] px-1.5 py-0.5 rounded">Performance</span>
+                </div>
+            </div>
+            <div class="flex flex-col justify-between items-end">
+                <button class="text-gray-400 hover:text-blue-600"><i class="ri-edit-line"></i></button>
+                <button class="text-gray-400 hover:text-red-600"><i class="ri-delete-bin-line"></i></button>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

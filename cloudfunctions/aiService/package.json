@@ -1,0 +1,10 @@
+{
+  "name": "aiService",
+  "version": "1.0.0",
+  "description": "AI Service for Merchant",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "wx-server-sdk": "latest"
+  }
+}

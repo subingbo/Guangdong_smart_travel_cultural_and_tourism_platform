@@ -1,0 +1,182 @@
+<view class="page">
+  <view class="header">
+    <t-icon name="arrow-left" size="48rpx" color="#fff" bindtap="onBack" />
+    <view class="title">{{t.menuScan.title}}</view>
+    <t-icon name="lightbulb" size="48rpx" color="#fff" />
+  </view>
+
+  <view class="camera-container">
+    <camera wx:if="{{!imageUrl}}" mode="normal" device-position="back" flash="off" binderror="onCameraError" class="camera-preview" />
+    <image wx:else src="{{translatedImageUrl || imageUrl}}" mode="aspectFit" class="camera-img" />
+    
+    <!-- OCR Overlays -->
+    <block wx:if="{{imageUrl && !translatedImageUrl && !showWordCloud && !showCultureCard && ocrItems.length > 0}}">
+      <view 
+        wx:for="{{ocrItems}}" 
+        wx:key="index"
+        class="ocr-box"
+        style="{{item.style}}"
+        data-text="{{item.text}}"
+        bindtap="onTapOCRBox"
+      ></view>
+    </block>
+
+    <view class="scan-frame" wx:if="{{!imageUrl}}">
+       <view class="corner top-left"></view>
+       <view class="corner top-right"></view>
+       <view class="corner bottom-left"></view>
+       <view class="corner bottom-right"></view>
+       <view class="scan-line"></view>
+    </view>
+
+    <!-- Word Cloud Overlay (Renamed to Keywords Drawer below, keeping this if random mode is preferred or remove) -->
+    <!-- Assuming Drawer replaces the random overlay, I will remove this or hide it. 
+         But since the user said "At the same time... separate module", I will replace the random overlay 
+         with the Drawer as the primary view for extracted words. -->
+    
+    <!-- Culture Card Overlay -->
+    <view class="card-overlay" wx:if="{{showCultureCard}}">
+       <view class="culture-card" style="{{cardHeight > 0 ? 'height: ' + cardHeight + 'px;' : ''}}">
+          <view class="cc-header">
+             <text class="cc-title">{{cultureCard.title}}</text>
+             <t-icon name="close" size="40rpx" color="#333" bindtap="onCloseCultureCard" />
+          </view>
+          
+          <!-- Loading State -->
+          <view wx:if="{{cardLoading}}" class="cc-loading">
+             <t-loading theme="circular" size="60rpx" text="Thinking..." />
+          </view>
+          
+          <view wx:else class="cc-body">
+             <view wx:if="{{cardStreaming}}" class="cc-stream">
+                <view class="cc-label">Generating</view>
+                <view class="cc-text">{{cardStreamText}}</view>
+             </view>
+             <view wx:else>
+                <view class="cc-section">
+                   <view class="cc-label">Description</view>
+                   <view class="cc-text">{{cultureCard.description}}</view>
+                </view>
+                <view class="cc-section">
+                   <view class="cc-label">Cultural Significance</view>
+                   <view class="cc-text">{{cultureCard.cultural_significance}}</view>
+                </view>
+                <view class="cc-tags" wx:if="{{cultureCard && cultureCard.tags && cultureCard.tags.length}}">
+                   <text class="cc-tag" wx:for="{{cultureCard.tags}}" wx:key="*this">{{item}}</text>
+                </view>
+             </view>
+          </view>
+          <!-- Resize Handle -->
+          <view class="cc-resize-handle"
+                catchtouchstart="onCardDragStart"
+                catchtouchmove="onCardDragMove">
+             <view class="handle-bar"></view>
+          </view>
+       </view>
+    </view>
+
+  </view>
+
+  <!-- Explanation Card (Legacy) -->
+  <view class="explanation-card {{showExplanation ? 'show' : ''}}">
+    <view class="card-header">
+      <text class="card-title">{{explanation.title}}</text>
+      <t-icon name="close" size="40rpx" bindtap="onCloseExplanation" />
+    </view>
+    <scroll-view scroll-y class="card-content">
+      <text>{{explanation.content}}</text>
+      <view class="card-tags" wx:if="{{explanation.tags.length > 0}}">
+        <view class="tag" wx:for="{{explanation.tags}}" wx:key="*this">{{item}}</view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- Draggable Keywords Drawer -->
+  <view class="keyword-drawer" 
+        style="height: {{drawerHeight}}px; bottom: 0;" 
+        wx:if="{{isDrawerOpen}}">
+    
+    <view class="drawer-handle-bar" 
+          catchtouchstart="onDragStart" 
+          catchtouchmove="onDragMove" 
+          catchtouchend="onDragEnd">
+      <view class="drawer-handle"></view>
+    </view>
+
+    <view class="drawer-header">
+      <text class="drawer-title">Found Cultural Items</text>
+      <t-icon name="close" size="40rpx" color="#999" bindtap="onCloseWordCloud" />
+    </view>
+
+    <scroll-view scroll-y class="drawer-content">
+      <view class="loading-container" wx:if="{{analyzing}}">
+        <view class="loading-spinner"></view>
+        <text class="loading-text">{{analysisStep}}</text>
+      </view>
+
+      <view class="keywords-list" wx:else>
+        <view wx:for="{{keywords}}" wx:key="word" 
+              class="keyword-chip" 
+              style="border-color: {{item.color}}; color: {{item.color}}; background-color: {{item.color}}1A;"
+              bindtap="onKeywordTap" 
+              data-keyword="{{item.word}}">
+          {{item.word}}
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="controls-panel">
+    <!-- Viewfinder Mode -->
+    <block wx:if="{{!imageUrl}}">
+      <view class="control-item" bindtap="onChooseAlbum">
+        <view class="icon-circle">
+          <t-icon name="image" size="40rpx" color="#ccc" />
+        </view>
+        <text class="control-text">{{t.menuScan.album}}</text>
+      </view>
+      
+      <view class="shutter-btn" bindtap="onTakePhoto">
+        <view class="shutter-inner"></view>
+      </view>
+
+      <view class="control-item" style="opacity: 0">
+        <view class="icon-circle">
+          <t-icon name="translate" size="40rpx" color="#ccc" />
+        </view>
+        <text class="control-text">{{t.menuScan.autoTrans}}</text>
+      </view>
+    </block>
+
+    <!-- Review/Result Mode -->
+    <block wx:else>
+      <view class="control-item" bindtap="onResetCamera">
+        <view class="icon-circle">
+          <t-icon name="refresh" size="40rpx" color="#ccc" />
+        </view>
+        <text class="control-text">Retake</text>
+      </view>
+
+      <view class="control-item" bindtap="onCultureCard">
+        <view class="icon-circle">
+          <t-icon name="app" size="40rpx" color="#ccc" />
+        </view>
+        <text class="control-text">Culture Card</text>
+      </view>
+
+      <view class="control-item" bindtap="onTranslate">
+        <view class="icon-circle" style="{{translating ? 'opacity: 0.5' : ''}}">
+          <t-icon name="translate" size="40rpx" color="#ccc" />
+        </view>
+        <text class="control-text">Translate</text>
+      </view>
+
+      <view class="control-item" bindtap="onSaveImage">
+        <view class="icon-circle">
+          <t-icon name="download" size="40rpx" color="#ccc" />
+        </view>
+        <text class="control-text">Save</text>
+      </view>
+    </block>
+  </view>
+</view>

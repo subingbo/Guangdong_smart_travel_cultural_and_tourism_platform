@@ -1,0 +1,53 @@
+.page {
+  height: 100vh;
+  background-color: #f6f6f6;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-list {
+  flex: 1;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.message-row {
+  display: flex;
+  margin-bottom: 32rpx;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.row-reverse {
+  flex-direction: row-reverse;
+}
+
+.bubble {
+  padding: 24rpx;
+  border-radius: 16rpx;
+  max-width: 70%;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.bubble-bot {
+  background-color: #fff;
+  color: #333;
+  border-top-left-radius: 4rpx;
+}
+
+.bubble-user {
+  background-color: #0052D9;
+  color: #fff;
+  border-top-right-radius: 4rpx;
+}
+
+.footer {
+  background-color: #fff;
+  padding: 16rpx 32rpx;
+  padding-bottom: calc(16rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
+}

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized Route</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans">
+
+    <!-- Header -->
+    <div class="bg-white p-4 pt-12 shadow-sm sticky top-0 z-10">
+        <h1 class="text-xl font-bold text-gray-800">Plan Your Trip</h1>
+        <p class="text-sm text-gray-500">Tell us your preferences</p>
+    </div>
+
+    <!-- Form Content -->
+    <div class="flex-1 p-4 pb-24 overflow-y-auto">
+        
+        <!-- Duration -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm mb-6">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="ri-time-line text-blue-600"></i> Duration
+            </h3>
+            <div class="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 no-scrollbar">
+                <button class="flex-shrink-0 px-4 py-2 rounded-xl bg-blue-600 text-white shadow-md border border-blue-600 transition active:scale-95">1 Day</button>
+                <button class="flex-shrink-0 px-4 py-2 rounded-xl bg-white text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-50 transition active:scale-95">2 Days</button>
+                <button class="flex-shrink-0 px-4 py-2 rounded-xl bg-white text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-50 transition active:scale-95">3 Days</button>
+                <button class="flex-shrink-0 px-4 py-2 rounded-xl bg-white text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-50 transition active:scale-95">5+ Days</button>
+            </div>
+        </div>
+
+        <!-- Interests -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm mb-6">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="ri-heart-line text-pink-500"></i> Interests
+            </h3>
+            <div class="flex flex-wrap gap-3">
+                <button class="px-3 py-1.5 rounded-full bg-orange-100 text-orange-600 text-sm font-medium border border-orange-200 flex items-center gap-1 active:scale-95 transition">
+                    <i class="ri-restaurant-line"></i> Foodie
+                </button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-sm font-medium border border-gray-200 flex items-center gap-1 hover:bg-gray-200 active:scale-95 transition">
+                    <i class="ri-ancient-gate-line"></i> History
+                </button>
+                <button class="px-3 py-1.5 rounded-full bg-green-100 text-green-600 text-sm font-medium border border-green-200 flex items-center gap-1 active:scale-95 transition">
+                    <i class="ri-plant-line"></i> Nature
+                </button>
+                <button class="px-3 py-1.5 rounded-full bg-purple-100 text-purple-600 text-sm font-medium border border-purple-200 flex items-center gap-1 active:scale-95 transition">
+                    <i class="ri-palette-line"></i> Art
+                </button>
+                <button class="px-3 py-1.5 rounded-full bg-gray-100 text-gray-600 text-sm font-medium border border-gray-200 flex items-center gap-1 hover:bg-gray-200 active:scale-95 transition">
+                    <i class="ri-shopping-bag-line"></i> Shopping
+                </button>
+            </div>
+        </div>
+
+        <!-- Pace -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm mb-8">
+            <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <i class="ri-run-line text-green-600"></i> Pace
+            </h3>
+            <div class="flex bg-gray-100 p-1 rounded-xl">
+                <button class="flex-1 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition">Relaxed</button>
+                <button class="flex-1 py-2 rounded-lg bg-white shadow text-sm font-bold text-gray-800 transition">Balanced</button>
+                <button class="flex-1 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition">Packed</button>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <a href="route_map.html" class="block w-full bg-blue-600 text-white text-center font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition flex items-center justify-center gap-2">
+            <i class="ri-magic-line text-xl"></i>
+            Generate AI Route
+        </a>
+
+    </div>
+
+    <!-- Bottom TabBar -->
+    <div class="bg-white border-t border-gray-200 fixed bottom-0 w-full pb-6 pt-2 px-4 z-50">
+        <div class="flex justify-between items-end">
+            <!-- Merchant -->
+            <a href="merchant.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-store-2-line text-2xl"></i>
+                <span class="text-[10px]">Merchant</span>
+            </a>
+            <!-- Route (Active) -->
+            <div class="flex flex-col items-center gap-1 w-12 text-blue-600">
+                <i class="ri-map-2-fill text-2xl"></i>
+                <span class="text-[10px] font-bold">Route</span>
+            </div>
+            <!-- Home (Center) -->
+            <div class="flex flex-col items-center -mt-8 relative">
+                <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg border-4 border-gray-50">
+                    <a href="home.html">
+                        <i class="ri-home-4-line text-2xl text-gray-400"></i>
+                    </a>
+                </div>
+                <span class="text-[10px] text-gray-400 font-medium mt-1">Home</span>
+            </div>
+            <!-- Blog -->
+            <a href="blog.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-article-line text-2xl"></i>
+                <span class="text-[10px]">Blog</span>
+            </a>
+            <!-- Guide -->
+            <a href="guide.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-robot-line text-2xl"></i>
+                <span class="text-[10px]">Guide</span>
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

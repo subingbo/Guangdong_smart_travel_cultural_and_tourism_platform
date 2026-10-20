@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/travel_gd?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&connectTimeout=5000&socketTimeout=30000
+    username: ${DB_USER:travelgd}
+    password: ${DB_PASSWORD:travelgd}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+app:
+  jwt:
+    # HS256 key; override via env JWT_SECRET in production
+    secret: ${JWT_SECRET:change-me-to-a-long-random-secret-at-least-32-chars}
+    expire-hours: 72
+  ai:
+    dashscope-api-key: ${DASHSCOPE_API_KEY:}
+    chat-url: https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation
+    route-model: qwen-plus
+    chat-model: qwen-turbo
+  map:
+    tencent-key: ${TENCENT_MAP_API_KEY:}
+    route-url: https://apis.map.qq.com/ws/direction/v1

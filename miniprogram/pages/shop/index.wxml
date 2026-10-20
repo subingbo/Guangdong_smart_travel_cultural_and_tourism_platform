@@ -1,0 +1,63 @@
+<view class="page" wx:if="{{t && t.shop}}">
+  <view class="header">
+    <view class="header-top">
+      <view class="title">{{t.shop.title}}</view>
+      <t-button theme="default" shape="circle" variant="text" icon="cart" bindtap="onTapCart" />
+    </view>
+
+    <view class="search-row">
+      <t-input
+        placeholder="{{t.shop.searchPlaceholder}}"
+        value="{{keyword}}"
+        borderless
+        bindchange="onKeywordChange"
+        style="flex: 1; background: rgba(255, 255, 255, 0.92); border-radius: 40rpx; padding: 0 24rpx;"
+      />
+      <t-button theme="primary" shape="round" size="small" bindtap="onTapSearch" style="margin-left: 16rpx;">
+        {{t.shop.search}}
+      </t-button>
+    </view>
+  </view>
+
+  <view class="section">
+    <swiper class="banner" autoplay circular indicator-dots indicator-active-color="#0052D9" indicator-color="rgba(0, 0, 0, 0.2)">
+      <swiper-item wx:for="{{banners}}" wx:key="id">
+        <t-image src="{{item.url}}" mode="aspectFill" class="banner-img" />
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <view class="section">
+    <view class="section-title">{{t.shop.categories}}</view>
+    <t-grid column="{{4}}" theme="card" bind:click="onTapCategory">
+      <t-grid-item wx:for="{{categories}}" wx:key="key" text="{{item.text}}" icon="{{item.icon}}" />
+    </t-grid>
+  </view>
+
+  <view class="section">
+    <view class="section-title">{{t.shop.hot}}</view>
+    <view class="recommend-list">
+      <view class="recommend-card" wx:for="{{hotProducts}}" wx:key="id">
+        <t-image src="{{item.image}}" mode="aspectFill" class="recommend-img" />
+        <view class="recommend-info">
+          <view class="recommend-title">{{item.title}}</view>
+          <view class="recommend-meta">
+            <view class="price">¥{{item.price}}</view>
+            <t-tag size="small" variant="light" theme="primary">{{item.tag}}</t-tag>
+          </view>
+          <t-button theme="primary" size="small" shape="round" bindtap="onAddToCart" data-id="{{item.id}}">
+            {{t.shop.addToCart}}
+          </t-button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <view class="bottom-left">
+      <view class="sum">{{t.shop.total}}: ¥{{cartTotal}}</view>
+      <view class="count">{{t.shop.items}}: {{cartCount}}</view>
+    </view>
+    <t-button theme="primary" shape="round" bindtap="onCheckout">{{t.shop.checkout}}</t-button>
+  </view>
+</view>

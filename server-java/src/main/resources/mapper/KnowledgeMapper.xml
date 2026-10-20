@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelgd.mapper.KnowledgeMapper">
+
+    <resultMap id="knowledgeMap" type="com.travelgd.model.Knowledge">
+        <id property="id" column="id"/>
+        <result property="titleCn" column="title_cn"/>
+        <result property="titleEn" column="title_en"/>
+        <result property="contentCn" column="content_cn"/>
+        <result property="contentEn" column="content_en"/>
+        <result property="tags" column="tags"
+                typeHandler="com.travelgd.handler.JsonListStringHandler"/>
+    </resultMap>
+
+    <select id="searchByKeyword" resultMap="knowledgeMap">
+        SELECT * FROM knowledge
+        <where>
+            <if test="keyword != null and keyword != ''">
+                (title_cn LIKE CONCAT('%', #{keyword}, '%')
+                OR title_en LIKE CONCAT('%', #{keyword}, '%')
+                OR content_cn LIKE CONCAT('%', #{keyword}, '%')
+                OR content_en LIKE CONCAT('%', #{keyword}, '%')
+                OR tags LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -1,0 +1,85 @@
+<view class="page">
+  <view class="card map-card">
+    <map
+      id="previewMap"
+      longitude="{{previewCenter.longitude}}"
+      latitude="{{previewCenter.latitude}}"
+      scale="{{previewScale}}"
+      markers="{{previewMarkers}}"
+      polyline="{{previewPolyline}}"
+      show-location
+      class="preview-map"
+    ></map>
+  </view>
+  <view class="card">
+    <view class="section-title">
+      <t-icon name="time" size="48rpx" style="margin-right: 16rpx; color: #0052D9;" /> {{t.route.duration}}
+    </view>
+    <view class="tags-container">
+      <block wx:for="{{durations}}" wx:key="value">
+        <t-tag 
+          size="large" 
+          variant="{{item.selected ? 'dark' : 'light'}}" 
+          bindtap="onDurationChange" 
+          data-index="{{index}}"
+          class="tag-item"
+        >{{item.label}}</t-tag>
+      </block>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">
+      <t-icon name="heart" size="48rpx" style="margin-right: 16rpx; color: #D54941;" /> {{t.route.interests}}
+    </view>
+    <view class="tags-container">
+      <block wx:for="{{interestTags}}" wx:key="value">
+        <t-tag 
+          size="large" 
+          variant="{{item.selected ? 'dark' : 'light'}}" 
+          icon="{{item.icon}}"
+          bindtap="onInterestChange" 
+          data-index="{{index}}"
+          class="tag-item"
+        >{{item.label}}</t-tag>
+      </block>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">
+      <t-icon name="dashboard" size="48rpx" style="margin-right: 16rpx; color: #2BA471;" /> {{t.route.pace}}
+    </view>
+    <view class="pace-selector">
+      <block wx:for="{{paces}}" wx:key="value">
+        <view 
+          class="pace-option {{item.selected ? 'active' : ''}}" 
+          bindtap="onPaceChange" 
+          data-index="{{index}}"
+        >{{item.label}}</view>
+      </block>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">
+      <t-icon name="map" size="48rpx" style="margin-right: 16rpx; color: #0052D9;" /> {{t.route.mode || 'Travel Mode'}}
+    </view>
+    <view class="tags-container">
+      <block wx:for="{{travelModes}}" wx:key="value">
+        <t-tag 
+          size="large" 
+          variant="{{item.selected ? 'dark' : 'light'}}" 
+          icon="{{item.icon}}"
+          bindtap="onTravelModeChange" 
+          data-index="{{index}}"
+          class="tag-item"
+        >{{item.label}}</t-tag>
+      </block>
+    </view>
+  </view>
+
+  <view class="btn-area">
+    <t-button theme="primary" size="large" block icon="magic-wand" bindtap="onGenerate" loading="{{loading}}">{{t.route.generate}}</t-button>
+  </view>
+</view>

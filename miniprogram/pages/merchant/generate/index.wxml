@@ -1,0 +1,112 @@
+<view class="page">
+  <view class="card">
+    <view class="label">{{t.generate.originalText}}</view>
+    <t-textarea 
+      placeholder="{{t.generate.inputPlaceholder}}" 
+      maxlength="500" 
+      indicator 
+      style="min-height: 200rpx;" 
+      value="{{inputText}}"
+      bind:change="onInputChange"
+    />
+  </view>
+
+  <view class="card">
+    <view class="label">{{t.generate.targetLang}}</view>
+    <view class="tags-container">
+      <t-tag 
+        variant="light" 
+        size="large" 
+        class="tag-item {{tools.includes(languages, 'en') ? 'active-tag' : ''}}" 
+        bind:click="onLanguageChange" 
+        data-value="en"
+      >{{t.common.english}}</t-tag>
+      <t-tag 
+        variant="light" 
+        size="large" 
+        class="tag-item {{tools.includes(languages, 'ja') ? 'active-tag' : ''}}" 
+        bind:click="onLanguageChange" 
+        data-value="ja"
+      >{{t.common.japanese}}</t-tag>
+      <t-tag 
+        variant="light" 
+        size="large" 
+        class="tag-item {{tools.includes(languages, 'ko') ? 'active-tag' : ''}}" 
+        bind:click="onLanguageChange" 
+        data-value="ko"
+      >{{t.common.korean}}</t-tag>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="label">{{t.generate.style}}</view>
+    <t-radio-group value="{{tone}}" bind:change="onToneChange" borderless>
+      <t-radio value="instagram" label="Instagram (Visual/Emoji)" />
+      <t-radio value="twitter" label="Twitter/X (Concise)" />
+      <t-radio value="facebook" label="Facebook (Storytelling)" />
+    </t-radio-group>
+  </view>
+
+  <view class="btn-area">
+    <t-button theme="primary" size="large" block bind:tap="onGenerate" loading="{{loading}}">{{t.generate.generateCopy}}</t-button>
+  </view>
+
+  <view class="result-area" wx:if="{{results}}">
+    <view class="result-header">
+      <view class="label">{{t.generate.copyResult}}</view>
+    </view>
+    
+    <block wx:for="{{languages}}" wx:key="*this">
+      <view class="result-card">
+        <view class="lang-badge">{{item === 'en' ? 'English' : (item === 'ja' ? 'Japanese' : 'Korean')}}</view>
+        <text user-select class="result-text">{{results[item]}}</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- Poster Generation Section -->
+  <view class="card" style="margin-top: 48rpx;">
+    <view class="label">{{t.generate.posterStyle}}</view>
+    <t-radio-group value="{{posterStyle}}" bind:change="onPosterStyleChange" borderless>
+      <t-radio value="Default" label="Default" />
+      <t-radio value="Cartoon" label="Cartoon" />
+      <t-radio value="Realistic" label="Realistic" />
+      <t-radio value="Cyberpunk" label="Cyberpunk" />
+    </t-radio-group>
+  </view>
+
+  <view class="card" style="margin-top: 24rpx;">
+      <view class="label">{{t.generate.posterPrompt}}</view>
+      <t-textarea 
+        placeholder="{{t.generate.refinePrompt}}" 
+        maxlength="200" 
+        indicator 
+        style="min-height: 120rpx;" 
+        value="{{customPosterPrompt}}"
+        bind:change="onPosterPromptChange"
+      />
+      <t-button size="large" theme="light" block bind:tap="onGeneratePoster" loading="{{posterLoading}}" style="margin-top: 16rpx;">{{t.generate.generatePoster}}</t-button>
+  </view>
+
+  <view class="result-area" wx:if="{{posterUrl}}">
+    <view class="card">
+      <view class="label" style="display: flex; justify-content: space-between; align-items: center;">
+        <text>{{t.generate.generatedPoster}}</text>
+        <t-tag variant="light" theme="primary">{{posterStyle}}</t-tag>
+      </view>
+      <image src="{{posterUrl}}" mode="widthFix" style="width: 100%; border-radius: 8rpx; margin-top: 16rpx;" bindtap="onPreviewPoster" />
+      <view style="margin-top: 16rpx; font-size: 24rpx; color: #999;">{{t.generate.tip}}</view>
+    </view>
+  </view>
+
+  <!-- Hidden Canvas for Poster -->
+  <canvas type="2d" id="posterCanvas" style="position: fixed; left: -9999px; width: 300px; height: 500px;"></canvas>
+</view>
+
+<wxs module="tools">
+module.exports = {
+  includes: function(arr, item) {
+    return arr.indexOf(item) > -1
+  }
+}
+</wxs>

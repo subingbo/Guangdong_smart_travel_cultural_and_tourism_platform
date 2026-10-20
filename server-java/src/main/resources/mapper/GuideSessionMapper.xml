@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.travelgd.mapper.GuideSessionMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO guide_sessions (user_id, title) VALUES (#{userId}, #{title})
+    </insert>
+
+    <select id="findById" resultType="com.travelgd.model.GuideSession">
+        SELECT * FROM guide_sessions WHERE id = #{id} AND user_id = #{userId}
+    </select>
+
+    <update id="updateTitle">
+        UPDATE guide_sessions SET title = #{title} WHERE id = #{id}
+    </update>
+</mapper>

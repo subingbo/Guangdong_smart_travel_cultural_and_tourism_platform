@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>South Guangdong Cultural Tour Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* iPhone 15 Pro Frame CSS */
+        .iphone-frame {
+            width: 393px;
+            height: 852px;
+            background-color: #000;
+            border-radius: 55px;
+            box-shadow: 0 0 0 11px #1f1f1f, 0 0 0 13px #191919, 0 0 0 20px #111;
+            position: relative;
+            overflow: hidden;
+            margin: 40px;
+            /* Scale down for better viewing on desktop if needed, or keep 1:1 */
+            transform-origin: top left;
+        }
+
+        .dynamic-island {
+            width: 120px;
+            height: 35px;
+            background-color: #000;
+            border-radius: 20px;
+            position: absolute;
+            top: 11px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+        }
+
+        .screen-content {
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+            border-radius: 44px; /* Slightly less than frame */
+            overflow: hidden;
+            position: relative;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Scrollbar for the main page */
+        body::-webkit-scrollbar {
+            width: 10px;
+        }
+        body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        body::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">South Guangdong Cultural Tour - Prototype</h1>
+        <p class="text-gray-600">Simulating iPhone 15 Pro (393x852)</p>
+    </div>
+
+    <div class="flex flex-wrap justify-center gap-8">
+        
+        <!-- Home Page -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Home (首页)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="home.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merchant Hub -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Merchant Hub (商家助手)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="merchant.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merchant: Generate -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Content Gen (多语种内容)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="merchant_gen.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merchant: Chatbot -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Chatbot (商家问答)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="merchant_chat.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Merchant: Scan -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Menu Scan (菜单翻译)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="merchant_scan.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Route Input -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Route Input (个性化路线)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="route.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Route Map -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Route Map (地图规划)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="route_map.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Travel Blog -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Travel Blog (智慧游记)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="blog.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Guide -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">AI Guide (AI 导游)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="guide.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Knowledge -->
+        <div class="flex flex-col items-center">
+            <h2 class="text-xl font-semibold mb-2">Admin (后台知识库)</h2>
+            <div class="iphone-frame">
+                <div class="dynamic-island"></div>
+                <div class="screen-content">
+                    <iframe src="admin.html"></iframe>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<view class="page">
+  <view class="map-context">
+    <map
+      id="guideMap"
+      longitude="{{mapCenter.longitude}}"
+      latitude="{{mapCenter.latitude}}"
+      scale="{{mapScale}}"
+      markers="{{mapMarkers}}"
+      show-location
+      class="guide-map"
+    ></map>
+    <view class="location-label">
+      <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> {{t.guide.near}}
+    </view>
+  </view>
+
+  <view class="chat-container">
+    <view class="handle"></view>
+    <scroll-view scroll-y class="chat-list" scroll-into-view="{{toView}}">
+      <block wx:for="{{messages}}" wx:key="index">
+        <view id="msg-{{index}}" class="message-row {{item.isUser ? 'row-reverse' : ''}}">
+          <t-avatar wx:if="{{!item.isUser}}" icon="robot" size="medium" />
+          <t-avatar wx:if="{{item.isUser}}" icon="user" size="medium" />
+          
+          <view class="bubble {{item.isUser ? 'bubble-user' : 'bubble-bot'}}">
+            <text>{{item.text}}</text>
+            <view wx:if="{{item.image}}" class="msg-image-container">
+              <image src="{{item.image}}" mode="widthFix" class="msg-image" />
+              <text class="msg-note">{{t.guide.located}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+
+    <view class="footer">
+      <t-input placeholder="{{t.guide.placeholder}}" value="{{inputValue}}" bindchange="onInputChange" borderless style="flex: 1; background: #f3f3f3; border-radius: 40rpx; padding: 0 24rpx;" />
+      <t-button theme="primary" shape="circle" icon="send" bindtap="onSend" style="margin-left: 16rpx;" />
+    </view>
+  </view>
+</view>

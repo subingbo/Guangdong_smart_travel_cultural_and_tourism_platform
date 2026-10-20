@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- Top Map (Location Context) -->
+    <div class="h-1/3 w-full bg-gray-200 relative">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Map_of_Guangzhou.jpg/1200px-Map_of_Guangzhou.jpg" alt="Map" class="w-full h-full object-cover opacity-80 filter grayscale">
+        
+        <!-- Current Location Marker -->
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+            <div class="w-16 h-16 bg-blue-500 rounded-full opacity-20 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+        </div>
+
+        <div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+            <i class="ri-map-pin-user-fill text-blue-500 mr-1"></i> Near Yuexiu Park
+        </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="flex-1 bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] -mt-6 z-10 flex flex-col overflow-hidden relative">
+        
+        <!-- Handle -->
+        <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-2 flex-shrink-0"></div>
+
+        <!-- Messages -->
+        <div class="flex-1 overflow-y-auto p-4 pb-20 space-y-4">
+            
+            <!-- Bot Welcome -->
+            <div class="flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <i class="ri-robot-fill text-blue-600 text-sm"></i>
+                </div>
+                <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none text-sm text-gray-700">
+                    <p>Hi! I'm your AI Guide. I see you are near Yuexiu Park. Ask me anything about the history or nearby spots!</p>
+                </div>
+            </div>
+
+            <!-- User Question -->
+            <div class="flex gap-3 justify-end">
+                <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none text-sm">
+                    <p>What is the Five Rams Statue?</p>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=User" alt="User">
+                </div>
+            </div>
+
+            <!-- Bot Answer -->
+            <div class="flex gap-3">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <i class="ri-robot-fill text-blue-600 text-sm"></i>
+                </div>
+                <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none text-sm text-gray-700 space-y-2">
+                    <p>The Five Rams Statue is the symbol of Guangzhou (the "City of Rams").</p> 
+                    <p>Legend has it that five immortals rode five rams into Guangzhou, bringing rice ears and blessings of no famine forever.</p>
+                    <div class="mt-2">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Five_Rams_Statue.jpg/800px-Five_Rams_Statue.jpg" class="rounded-lg w-full h-32 object-cover mb-1">
+                        <span class="text-[10px] text-gray-400">Located 300m away</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Input Area -->
+        <div class="absolute bottom-0 w-full bg-white p-3 border-t border-gray-100 pb-24"> <!-- Extra padding for TabBar -->
+            <div class="flex gap-2 items-center">
+                <button class="p-2 text-gray-400 hover:text-blue-600 transition"><i class="ri-mic-line text-xl"></i></button>
+                <div class="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center shadow-inner">
+                    <input type="text" placeholder="Ask about history, food..." class="bg-transparent w-full text-sm outline-none text-gray-700 placeholder-gray-400">
+                </div>
+                <button class="p-2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg hover:bg-blue-700 active:scale-95 transition">
+                    <i class="ri-send-plane-fill"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom TabBar -->
+    <div class="bg-white border-t border-gray-200 fixed bottom-0 w-full pb-6 pt-2 px-4 z-50">
+        <div class="flex justify-between items-end">
+            <!-- Merchant -->
+            <a href="merchant.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-store-2-line text-2xl"></i>
+                <span class="text-[10px]">Merchant</span>
+            </a>
+            <!-- Route -->
+            <a href="route.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-map-2-line text-2xl"></i>
+                <span class="text-[10px]">Route</span>
+            </a>
+            <!-- Home (Center) -->
+            <div class="flex flex-col items-center -mt-8 relative">
+                <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-lg border-4 border-gray-50">
+                    <a href="home.html">
+                        <i class="ri-home-4-line text-2xl text-gray-400"></i>
+                    </a>
+                </div>
+                <span class="text-[10px] text-gray-400 font-medium mt-1">Home</span>
+            </div>
+            <!-- Blog -->
+            <a href="blog.html" class="flex flex-col items-center gap-1 w-12 opacity-50 hover:opacity-100">
+                <i class="ri-article-line text-2xl"></i>
+                <span class="text-[10px]">Blog</span>
+            </a>
+            <!-- Guide (Active) -->
+            <div class="flex flex-col items-center gap-1 w-12 text-blue-600">
+                <i class="ri-robot-fill text-2xl"></i>
+                <span class="text-[10px] font-bold">Guide</span>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

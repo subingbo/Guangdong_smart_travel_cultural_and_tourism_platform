@@ -1,0 +1,112 @@
+AI 生文模型 HTTP 调用超时问题
+使用 HTTP 方式调用云开发 AI 生文大模型时，如果未正确设置流式响应，可能会遇到超时问题。
+
+问题现象
+通过 HTTP 接口调用 AI 生文模型时，请求超过 1 分钟后没有返回结果，最终请求超时。
+
+无论是否期望使用流式返回，都可能遇到这个问题。
+
+问题原因
+大模型生成文本的过程通常需要较长时间，如果不启用流式响应，服务端需要等待所有内容生成完毕后才能一次性返回。当生成时间过长时，可能触发网关的默认超时限制。
+
+解决方案
+设置流式响应请求头
+在 HTTP 请求中添加 Accept: text/event-stream 请求头，启用 Server-Sent Events (SSE) 流式响应：
+
+// 使用 fetch
+const response = await fetch(apiUrl, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream',  // 关键：启用流式响应
+    // 其他认证头...
+  },
+  body: JSON.stringify({
+    model: 'hunyuan-lite',
+    messages: [
+      { role: 'user', content: '你好' }
+    ]
+  })
+});
+
+// 处理流式响应
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  const chunk = decoder.decode(value);
+  console.log(chunk);
+}
+
+// 使用 axios
+const response = await axios({
+  method: 'post',
+  url: apiUrl,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream',  // 关键：启用流式响应
+  },
+  data: {
+    model: 'hunyuan-lite',
+    messages: [
+      { role: 'user', content: '你好' }
+    ]
+  },
+  responseType: 'stream'  // 以流方式接收响应
+});
+
+使用 SDK 调用（推荐）
+如果在小程序或 Web 环境中使用，建议直接使用云开发 SDK 提供的 AI 接口，SDK 已经内置了流式响应处理：
+
+// 小程序端
+const hy = wx.cloud.extend.AI.createModel('hunyuan');
+const res = await hy.streamText({
+  data: {
+    model: 'hunyuan-lite',
+    messages: [
+      { role: 'user', content: '你好' }
+    ]
+  }
+});
+
+for await (let str of res.textStream) {
+  console.log(str);
+}
+
+// Web 端
+import cloudbase from '@cloudbase/js-sdk';
+
+// 初始化 cloudbase
+const app = cloudbase.init({
+  env: 'your-env-id'
+});
+
+// 创建 AI 模型实例
+const ai = app.extend.AI;
+const model = ai.createModel('hunyuan-lite');
+
+// 调用流式生成接口
+const result = await model.streamText({
+  messages: [
+    { role: 'user', content: '你好' }
+  ]
+});
+
+// 处理流式输出
+for await (const chunk of result.textStream) {
+  console.log(chunk);
+}
+
+相似问题
+AI 生文模型调用超时怎么解决？
+HTTP 调用大模型超过 1 分钟没有响应怎么办？
+如何启用 AI 大模型的流式响应？
+text/event-stream 请求头是什么作用？
+云开发 AI 接口超时问题如何处理？
+SSE 流式响应如何配置？
+AI 大模型 HTTP 调用没有返回结果？
+如何正确处理大模型的流式输出？
+大模型调用请求超时的常见原因？
+云开发 AI 接口流式响应设置方法？

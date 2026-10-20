@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="header">
+    <view class="welcome-card">
+      <view class="avatar">
+        <t-icon name="shop" size="48rpx" color="#fff" />
+      </view>
+      <view class="info">
+        <view class="name">{{t.merchant.name}}</view>
+        <view class="tag">{{t.merchant.verified}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">{{t.merchant.aiTools}}</view>
+    <t-cell-group theme="card">
+      <t-cell title="{{t.merchant.contentGen}}" description="{{t.merchant.contentGenDesc}}" url="/pages/merchant/generate/index" hover arrow>
+        <t-icon slot="left-icon" name="edit-1" size="48rpx" color="#7B61FF" style="margin-right: 16rpx;" />
+      </t-cell>
+      <t-cell title="{{t.merchant.customerService}}" description="{{t.merchant.customerServiceDesc}}" url="/pages/merchant/chatbot/index" hover arrow>
+        <t-icon slot="left-icon" name="chat" size="48rpx" color="#0052D9" style="margin-right: 16rpx;" />
+      </t-cell>
+      <t-cell title="{{t.merchant.menuTranslator}}" description="{{t.merchant.menuTranslatorDesc}}" url="/pages/merchant/menuScan/index" hover arrow>
+        <t-icon slot="left-icon" name="camera" size="48rpx" color="#ED7B2F" style="margin-right: 16rpx;" />
+      </t-cell>
+    </t-cell-group>
+  </view>
+
+  <view class="section">
+    <view class="section-title">{{t.merchant.overview}}</view>
+    <view class="analytics-card">
+      <view class="analytics-item">
+        <view class="label">{{t.merchant.todaysVisitors}}</view>
+        <view class="value">128</view>
+      </view>
+      <view class="divider"></view>
+      <view class="analytics-item">
+        <view class="label">{{t.merchant.aiInteractions}}</view>
+        <view class="value">45</view>
+      </view>
+    </view>
+  </view>
+</view>

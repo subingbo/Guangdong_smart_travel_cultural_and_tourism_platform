@@ -1,0 +1,8 @@
+.t-tab-bar-item__icon {
+  font-size: 48rpx !important;
+}
+
+.home-tab .t-tab-bar-item__icon {
+  font-size: 64rpx !important;
+  color: #0052D9;
+}

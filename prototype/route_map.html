@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        .marker {
+            width: 30px;
+            height: 30px;
+            background-color: #3b82f6;
+            border: 3px solid white;
+            border-radius: 50% 50% 0 50%;
+            transform: rotate(45deg);
+            position: absolute;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .marker span {
+            transform: rotate(-45deg);
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .route-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col font-sans overflow-hidden relative">
+
+    <!-- Map Background -->
+    <div class="absolute inset-0 bg-gray-200 z-0">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Map_of_Guangzhou.jpg/1200px-Map_of_Guangzhou.jpg" alt="Map" class="w-full h-full object-cover opacity-80 filter grayscale">
+    </div>
+
+    <!-- Header (Floating) -->
+    <div class="absolute top-0 w-full p-4 pt-12 z-20 flex justify-between items-start pointer-events-none">
+        <a href="route.html" class="bg-white p-2 rounded-full shadow-lg pointer-events-auto hover:bg-gray-50 transition active:scale-95">
+            <i class="ri-arrow-left-line text-2xl text-gray-800"></i>
+        </a>
+        <div class="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-lg pointer-events-auto">
+            <h2 class="font-bold text-gray-800 text-sm">One Day Culture Trip</h2>
+            <p class="text-xs text-gray-500">3 Spots · 4.5 Hours</p>
+        </div>
+        <button class="bg-white p-2 rounded-full shadow-lg pointer-events-auto hover:bg-gray-50 transition active:scale-95">
+            <i class="ri-share-forward-line text-2xl text-gray-800"></i>
+        </button>
+    </div>
+
+    <!-- Markers & Route -->
+    <div class="absolute inset-0 z-0">
+        <!-- SVG Line connecting markers -->
+        <svg class="route-line">
+            <path d="M120 250 Q 180 350 240 450 T 300 600" fill="none" stroke="#3b82f6" stroke-width="4" stroke-dasharray="8 4" stroke-linecap="round" />
+        </svg>
+
+        <!-- Marker 1 -->
+        <div class="marker" style="top: 230px; left: 105px;">
+            <span>1</span>
+        </div>
+        <div class="absolute top-[200px] left-[80px] bg-white px-2 py-1 rounded shadow text-xs font-bold whitespace-nowrap z-20">
+            Chen Clan Academy
+        </div>
+
+        <!-- Marker 2 -->
+        <div class="marker" style="top: 430px; left: 225px;">
+            <span>2</span>
+        </div>
+        
+        <!-- Marker 3 -->
+        <div class="marker" style="top: 580px; left: 285px;">
+            <span>3</span>
+        </div>
+        <div class="absolute top-[620px] left-[260px] bg-white px-2 py-1 rounded shadow text-xs font-bold whitespace-nowrap z-20">
+            Canton Tower
+        </div>
+    </div>
+
+    <!-- Bottom Sheet -->
+    <div class="absolute bottom-0 w-full bg-white rounded-t-3xl shadow-[0_-5px_20px_rgba(0,0,0,0.1)] z-30 transition-transform duration-300 transform translate-y-0 hover:translate-y-[-10px]">
+        <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-4"></div>
+        
+        <div class="px-6 pb-8">
+            <div class="flex items-start gap-4 mb-6 relative">
+                <!-- Timeline Line -->
+                <div class="absolute left-[19px] top-8 bottom-[-24px] w-0.5 bg-gray-200"></div>
+
+                <!-- Item 1 -->
+                <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 z-10">
+                    <i class="ri-map-pin-user-line"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-gray-800">Chen Clan Ancestral Hall</h3>
+                    <p class="text-xs text-gray-500 mb-2">09:00 AM - 11:00 AM</p>
+                    <p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">Folk art museum famous for its wood carvings.</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-4 mb-6 relative">
+                 <!-- Timeline Line -->
+                 <div class="absolute left-[19px] top-8 bottom-[-24px] w-0.5 bg-gray-200"></div>
+
+                <div class="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center shrink-0 z-10">
+                    <i class="ri-restaurant-2-line"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-gray-800">Lunch at Panxi Restaurant</h3>
+                    <p class="text-xs text-gray-500 mb-2">11:30 AM - 01:00 PM</p>
+                    <p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">Enjoy traditional Dim Sum by the lake.</p>
+                </div>
+            </div>
+
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shrink-0 z-10">
+                    <i class="ri-camera-lens-line"></i>
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-bold text-gray-800">Canton Tower</h3>
+                    <p class="text-xs text-gray-500 mb-2">02:00 PM - 04:00 PM</p>
+                    <p class="text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">Panoramic view of the city.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

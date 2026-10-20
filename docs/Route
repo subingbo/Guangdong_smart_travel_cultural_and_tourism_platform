@@ -1,0 +1,1876 @@
+# 微信小程序云开发AI智能伴游系统实现方案
+
+## 一、项目概述
+
+本项目基于微信小程序云开发平台，结合腾讯位置服务MCP协议，实现一个智能AI伴游系统。系统包含个性化路线定制、地图路径规划、智慧游记生成和AI导游RAG问答四大核心模块。
+
+## 二、技术架构
+
+### 2.1 技术栈
+- **前端框架**: 微信小程序原生开发
+- **地图服务**: 腾讯位置服务 + MCP协议
+- **后端服务**: 腾讯云开发（云函数、数据库、静态托管）
+- **AI能力**: 腾讯混元大模型/DeepSeek API
+- **存储**: 云开发数据库、对象存储
+
+### 2.2 架构图
+```
+用户端(小程序) → 云函数层 → 腾讯地图MCP → AI大模型
+        ↓              ↓              ↓
+    云数据库 ← 业务逻辑层 ← 数据处理层
+```
+
+## 三、前期准备
+
+### 3.1 申请腾讯位置服务Key
+1. 访问https://lbs.qq.com/
+2. 创建应用，获取开发者密钥（Key）
+3. 开启WebServiceAPI功能，分配调用额度
+4. 记录Key用于后续MCP接入
+
+### 3.2 小程序配置
+```json
+// app.json
+{
+  "permission": {
+    "scope.userLocation": {
+      "desc": "需要获取您的位置以提供精准的路线规划服务"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation", "chooseLocation"],
+  "plugins": {
+    "chooseLocation": {
+      "version": "1.0.10",
+      "provider": "wx76a9a06e5b4e693e"
+    }
+  }
+}
+```
+
+### 3.3 云开发环境配置
+1. 在腾讯云CloudBase控制台创建环境
+2. 获取环境ID（CLOUDBASE_ENV_ID）
+3. 获取腾讯云API密钥（SecretId和SecretKey）
+
+## 四、腾讯地图MCP接入
+
+### 4.1 MCP Server配置
+腾讯位置服务提供了基于MCP协议的地理信息服务接口，支持以下核心功能：
+
+| 工具标识 | 功能描述 | 核心参数 |
+|---------|---------|---------|
+| `geocoder` | 地址到经纬度转换 | `address`（地址） |
+| `placeSuggestion` | 地点关键词搜索 | `keyword`（关键词）, `region`（城市） |
+| `directionDriving` | 驾车路线规划 | `from`（起点）, `to`（终点） |
+| `directionWalking` | 步行路线规划 | `from`, `to` |
+| `placeSearchNearby` | 周边地点搜索 | `location`（中心点）, `keyword` |
+| `reverseGeocoder` | 经纬度到地址转换 | `location`（经纬度） |
+| `weather` | 天气查询 | `adcode`（行政区划代码） |
+
+### 4.2 SSE模式配置
+在云函数中配置MCP Server连接：
+```javascript
+// cloudfunctions/mcp-config/index.js
+const MCP_SERVER_URL = 'https://mcp.map.qq.com/sse?key=YOUR_API_KEY&format=0';
+
+// 或者在小程序端通过云函数代理访问
+module.exports = async (event) => {
+  const { tool, params } = event;
+  
+  // 调用腾讯地图MCP服务
+  const response = await fetch(`${MCP_SERVER_URL}&tool=${tool}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params)
+  });
+  
+  return response.json();
+};
+```
+
+## 五、数据库设计
+
+### 5.1 核心集合设计
+```javascript
+// 用户信息集合
+const usersCollection = {
+  _id: '自动生成',
+  openid: '微信openid',
+  nickname: '用户昵称',
+  avatar: '头像URL',
+  preferences: {
+    interests: ['历史', '美食', '自然', '艺术'], // 兴趣标签
+    travelStyle: '休闲/深度/打卡', // 旅行风格
+    budgetLevel: '经济/舒适/豪华' // 预算水平
+  },
+  createdAt: '创建时间'
+};
+
+// 路线规划集合
+const routesCollection = {
+  _id: '自动生成',
+  userId: '用户ID',
+  routeName: '路线名称',
+  startTime: '开始时间',
+  endTime: '结束时间',
+  duration: '总时长(小时)',
+  interests: ['兴趣标签'],
+  waypoints: [
+    {
+      poiId: 'POI ID',
+      name: '地点名称',
+      latitude: '纬度',
+      longitude: '经度',
+      stayTime: '停留时间(分钟)',
+      description: '文化解说',
+      images: ['图片URL']
+    }
+  ],
+  polyline: '路线坐标点串',
+  totalDistance: '总距离(公里)',
+  weatherCondition: '天气状况',
+  indoorAlternative: '室内备选路线',
+  createdAt: '创建时间'
+};
+
+// 游记集合
+const travelBlogsCollection = {
+  _id: '自动生成',
+  userId: '用户ID',
+  routeId: '路线ID',
+  title: '游记标题',
+  content: '游记内容(英文)',
+  images: ['图片URL'],
+  tags: ['标签'],
+  likes: '点赞数',
+  shares: '分享数',
+  createdAt: '创建时间'
+};
+
+// 知识库集合（RAG问答）
+const knowledgeBaseCollection = {
+  _id: '自动生成',
+  poiId: 'POI ID',
+  category: '景点/美食/历史',
+  title: '知识标题',
+  content: '详细内容',
+  embeddings: '向量嵌入',
+  references: '参考文献',
+  createdAt: '创建时间'
+};
+```
+
+## 六、核心模块实现
+
+### 6.1 个性化路线定制模块（pages/user/routeInput/index）
+
+#### 页面结构实现
+```xml
+<!-- routeInput.wxml -->
+<view class="container">
+  <!-- 时间选择区 -->
+  <view class="time-section">
+    <text>选择游玩时间</text>
+    <picker mode="time" value="{{startTime}}" bindchange="onStartTimeChange">
+      <view class="picker">开始时间: {{startTime}}</view>
+    </picker>
+    <picker mode="time" value="{{endTime}}" bindchange="onEndTimeChange">
+      <view class="picker">结束时间: {{endTime}}</view>
+    </picker>
+    <picker mode="date" value="{{travelDate}}" bindchange="onDateChange">
+      <view class="picker">出行日期: {{travelDate}}</view>
+    </picker>
+  </view>
+  
+  <!-- 兴趣标签区 -->
+  <view class="interest-section">
+    <text>选择兴趣标签</text>
+    <view class="interest-tags">
+      <block wx:for="{{interestTags}}" wx:key="index">
+        <view 
+          class="tag {{item.selected ? 'selected' : ''}}"
+          bindtap="toggleInterest"
+          data-index="{{index}}"
+        >
+          {{item.name}}
+        </view>
+      </block>
+    </view>
+  </view>
+  
+  <!-- 生成路线按钮 -->
+  <view class="action-section">
+    <button type="primary" bindtap="generateRoute" loading="{{loading}}">
+      生成智能路线
+    </button>
+  </view>
+</view>
+```
+
+#### 交互逻辑实现
+```javascript
+// routeInput.js
+Page({
+  data: {
+    startTime: '09:00',
+    endTime: '17:00',
+    travelDate: '2024-12-01',
+    interestTags: [
+      { name: '历史古迹', selected: false },
+      { name: '美食探店', selected: false },
+      { name: '自然风光', selected: false },
+      { name: '艺术文化', selected: false },
+      { name: '购物休闲', selected: false },
+      { name: '亲子娱乐', selected: false }
+    ],
+    loading: false
+  },
+  
+  // 时间选择
+  onStartTimeChange(e) {
+    this.setData({ startTime: e.detail.value });
+  },
+  
+  onEndTimeChange(e) {
+    this.setData({ endTime: e.detail.value });
+  },
+  
+  onDateChange(e) {
+    this.setData({ travelDate: e.detail.value });
+  },
+  
+  // 兴趣标签选择
+  toggleInterest(e) {
+    const index = e.currentTarget.dataset.index;
+    const key = `interestTags[${index}].selected`;
+    this.setData({
+      [key]: !this.data.interestTags[index].selected
+    });
+  },
+  
+  // 生成路线
+  async generateRoute() {
+    this.setData({ loading: true });
+    
+    try {
+      // 1. 获取用户当前位置
+      const location = await this.getUserLocation();
+      
+      // 2. 获取选择的兴趣标签
+      const selectedInterests = this.data.interestTags
+        .filter(tag => tag.selected)
+        .map(tag => tag.name);
+      
+      // 3. 计算可用时间（小时）
+      const start = new Date(`${this.data.travelDate} ${this.data.startTime}`);
+      const end = new Date(`${this.data.travelDate} ${this.data.endTime}`);
+      const availableHours = (end - start) / (1000 * 60 * 60);
+      
+      // 4. 调用云函数生成智能路线
+      const result = await wx.cloud.callFunction({
+        name: 'generateSmartRoute',
+        data: {
+          location,
+          interests: selectedInterests,
+          availableHours,
+          date: this.data.travelDate
+        }
+      });
+      
+      // 5. 跳转到地图页面
+      wx.navigateTo({
+        url: `/pages/user/map/index?routeId=${result.data.routeId}`
+      });
+      
+    } catch (error) {
+      console.error('生成路线失败:', error);
+      wx.showToast({
+        title: '生成失败，请重试',
+        icon: 'none'
+      });
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+  
+  // 获取用户位置
+  getUserLocation() {
+    return new Promise((resolve, reject) => {
+      wx.getLocation({
+        type: 'gcj02',
+        success: (res) => {
+          resolve({
+            latitude: res.latitude,
+            longitude: res.longitude
+          });
+        },
+        fail: reject
+      });
+    });
+  }
+});
+```
+
+### 6.2 地图路径规划模块（pages/user/map/index）
+
+#### 页面结构实现
+```xml
+<!-- map.wxml -->
+<view class="map-container">
+  <!-- 全屏地图 -->
+  <map 
+    id="myMap"
+    longitude="{{longitude}}"
+    latitude="{{latitude}}"
+    scale="{{scale}}"
+    markers="{{markers}}"
+    polyline="{{polyline}}"
+    show-location
+    bindmarkertap="onMarkerTap"
+    bindregionchange="onRegionChange"
+    style="width: 100%; height: 100vh;"
+  >
+  </map>
+  
+  <!-- 底部文化解说卡片 -->
+  <view class="info-card" wx:if="{{currentPOI}}">
+    <view class="card-header">
+      <text class="poi-name">{{currentPOI.name}}</text>
+      <text class="close-btn" bindtap="closeCard">×</text>
+    </view>
+    <view class="card-content">
+      <text class="description">{{currentPOI.description}}</text>
+      <view class="details">
+        <text>建议停留: {{currentPOI.stayTime}}分钟</text>
+        <text>距离: {{currentPOI.distance}}米</text>
+      </view>
+      <image 
+        wx:if="{{currentPOI.images[0]}}"
+        src="{{currentPOI.images[0]}}"
+        mode="aspectFill"
+        class="poi-image"
+      />
+    </view>
+    <view class="card-actions">
+      <button size="mini" bindtap="navigateToPOI">导航前往</button>
+      <button size="mini" bindtap="askAIGuide">AI导游讲解</button>
+    </view>
+  </view>
+  
+  <!-- 天气切换提示 -->
+  <view class="weather-alert" wx:if="{{showWeatherAlert}}">
+    <text>检测到下雨，已为您切换到室内路线</text>
+    <button size="mini" bindtap="switchToOutdoor">切换回室外</button>
+  </view>
+</view>
+```
+
+#### 交互逻辑实现
+```javascript
+// map.js
+Page({
+  data: {
+    longitude: 116.397455,
+    latitude: 39.909187,
+    scale: 14,
+    markers: [],
+    polyline: [],
+    currentPOI: null,
+    showWeatherAlert: false,
+    routeData: null,
+    mapContext: null
+  },
+  
+  onLoad(options) {
+    // 获取路由参数
+    const routeId = options.routeId;
+    
+    // 初始化地图上下文
+    this.mapContext = wx.createMapContext('myMap', this);
+    
+    // 加载路线数据
+    this.loadRouteData(routeId);
+    
+    // 监听天气变化
+    this.checkWeather();
+  },
+  
+  // 加载路线数据
+  async loadRouteData(routeId) {
+    try {
+      const db = wx.cloud.database();
+      const result = await db.collection('routes').doc(routeId).get();
+      
+      this.setData({
+        routeData: result.data,
+        longitude: result.data.waypoints[0].longitude,
+        latitude: result.data.waypoints[0].latitude
+      });
+      
+      // 渲染标记点和路线
+      this.renderMapData(result.data);
+      
+    } catch (error) {
+      console.error('加载路线数据失败:', error);
+    }
+  },
+  
+  // 渲染地图数据
+  renderMapData(routeData) {
+    const markers = routeData.waypoints.map((poi, index) => ({
+      id: index,
+      latitude: poi.latitude,
+      longitude: poi.longitude,
+      title: poi.name,
+      iconPath: '/images/marker.png',
+      width: 30,
+      height: 30,
+      callout: {
+        content: poi.name,
+        color: '#333',
+        fontSize: 14,
+        borderRadius: 4,
+        padding: 8,
+        display: 'ALWAYS'
+      }
+    }));
+    
+    const polyline = [{
+      points: routeData.polyline,
+      color: '#5591af',
+      width: 6,
+      dottedLine: false
+    }];
+    
+    this.setData({ markers, polyline });
+    
+    // 调整地图视野以显示所有标记点
+    this.mapContext.includePoints({
+      points: markers.map(m => ({
+        latitude: m.latitude,
+        longitude: m.longitude
+      })),
+      padding: [60, 60, 60, 60]
+    });
+  },
+  
+  // 标记点点击事件
+  onMarkerTap(e) {
+    const markerId = e.markerId;
+    const poi = this.data.routeData.waypoints[markerId];
+    
+    this.setData({
+      currentPOI: {
+        ...poi,
+        distance: this.calculateDistance(poi)
+      }
+    });
+  },
+  
+  // 计算距离
+  calculateDistance(poi) {
+    // 简化距离计算，实际应使用腾讯地图API
+    const R = 6371000; // 地球半径（米）
+    const lat1 = this.data.latitude * Math.PI / 180;
+    const lat2 = poi.latitude * Math.PI / 180;
+    const dLat = (poi.latitude - this.data.latitude) * Math.PI / 180;
+    const dLng = (poi.longitude - this.data.longitude) * Math.PI / 180;
+    
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1) * Math.cos(lat2) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    
+    return Math.round(R * c);
+  },
+  
+  // 检查天气
+  async checkWeather() {
+    try {
+      // 调用腾讯地图MCP天气接口
+      const weather = await wx.cloud.callFunction({
+        name: 'mcpProxy',
+        data: {
+          tool: 'weather',
+          params: {
+            adcode: '110101', // 行政区划代码，需根据位置获取
+            type: 'now'
+          }
+        }
+      });
+      
+      // 如果下雨，切换到室内路线
+      if (weather.data.weather.includes('雨')) {
+        this.switchToIndoorRoute();
+        this.setData({ showWeatherAlert: true });
+      }
+      
+    } catch (error) {
+      console.error('获取天气失败:', error);
+    }
+  },
+  
+  // 切换到室内路线
+  switchToIndoorRoute() {
+    if (!this.data.routeData.indoorAlternative) return;
+    
+    // 加载室内备选路线
+    this.renderMapData(this.data.routeData.indoorAlternative);
+  },
+  
+  // 导航到POI
+  navigateToPOI() {
+    if (!this.data.currentPOI) return;
+    
+    wx.openLocation({
+      latitude: this.data.currentPOI.latitude,
+      longitude: this.data.currentPOI.longitude,
+      name: this.data.currentPOI.name,
+      address: this.data.currentPOI.address || ''
+    });
+  },
+  
+  // AI导游讲解
+  askAIGuide() {
+    wx.navigateTo({
+      url: `/pages/user/guide/index?poiId=${this.data.currentPOI.poiId}`
+    });
+  },
+  
+  // 关闭卡片
+  closeCard() {
+    this.setData({ currentPOI: null });
+  }
+});
+```
+
+### 6.3 智慧游记生成模块（pages/user/travelBlog/index）
+
+#### 页面结构实现
+```xml
+<!-- travelBlog.wxml -->
+<view class="blog-container">
+  <!-- 图片上传区 -->
+  <view class="upload-section">
+    <text>上传旅行照片</text>
+    <view class="image-grid">
+      <block wx:for="{{images}}" wx:key="index">
+        <view class="image-item">
+          <image src="{{item}}" mode="aspectFill" />
+          <view class="delete-btn" bindtap="deleteImage" data-index="{{index}}">×</view>
+        </view>
+      </block>
+      <view class="upload-btn" bindtap="chooseImage" wx:if="{{images.length < 9}}">
+        <text>+</text>
+        <text>添加照片</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 生成按钮 -->
+  <view class="generate-section">
+    <button 
+      type="primary" 
+      bindtap="generateBlog" 
+      loading="{{generating}}"
+      disabled="{{images.length === 0}}"
+    >
+      {{generating ? '正在生成...' : '生成智慧游记'}}
+    </button>
+  </view>
+  
+  <!-- 游记展示卡片 -->
+  <view class="blog-card" wx:if="{{blogContent}}">
+    <view class="blog-header">
+      <text class="blog-title">{{blogTitle}}</text>
+      <text class="blog-date">{{blogDate}}</text>
+    </view>
+    <view class="blog-content">
+      <text>{{blogContent}}</text>
+    </view>
+    <view class="blog-images">
+      <block wx:for="{{images}}" wx:key="index">
+        <image src="{{item}}" mode="aspectFill" />
+      </block>
+    </view>
+  </view>
+  
+  <!-- 分享操作区 -->
+  <view class="share-section" wx:if="{{blogContent}}">
+    <button open-type="share" class="share-btn">分享给好友</button>
+    <button bindtap="copyBlog" class="copy-btn">复制内容</button>
+    <button bindtap="saveToAlbum" class="save-btn">保存图片</button>
+  </view>
+</view>
+```
+
+#### 交互逻辑实现
+```javascript
+// travelBlog.js
+Page({
+  data: {
+    images: [],
+    generating: false,
+    blogTitle: '',
+    blogContent: '',
+    blogDate: '',
+    routeId: null
+  },
+  
+  onLoad(options) {
+    // 获取路由参数
+    this.setData({ routeId: options.routeId });
+  },
+  
+  // 选择图片
+  chooseImage() {
+    wx.chooseMedia({
+      count: 9 - this.data.images.length,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: (res) => {
+        const newImages = res.tempFiles.map(file => file.tempFilePath);
+        this.setData({
+          images: [...this.data.images, ...newImages]
+        });
+      }
+    });
+  },
+  
+  // 删除图片
+  deleteImage(e) {
+    const index = e.currentTarget.dataset.index;
+    const images = [...this.data.images];
+    images.splice(index, 1);
+    this.setData({ images });
+  },
+  
+  // 生成游记
+  async generateBlog() {
+    if (this.data.images.length === 0) {
+      wx.showToast({
+        title: '请先上传照片',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    this.setData({ generating: true });
+    
+    try {
+      // 1. 上传图片到云存储
+      const imageUrls = await this.uploadImages();
+      
+      // 2. 获取路线信息
+      const routeInfo = await this.getRouteInfo();
+      
+      // 3. 调用AI生成英文游记
+      const blogResult = await wx.cloud.callFunction({
+        name: 'generateTravelBlog',
+        data: {
+          images: imageUrls,
+          routeInfo: routeInfo,
+          style: 'vivid' // 生动风格
+        }
+      });
+      
+      // 4. 保存到数据库
+      const blogId = await this.saveBlogToDB({
+        title: blogResult.data.title,
+        content: blogResult.data.content,
+        images: imageUrls,
+        routeId: this.data.routeId
+      });
+      
+      // 5. 更新页面显示
+      this.setData({
+        blogTitle: blogResult.data.title,
+        blogContent: blogResult.data.content,
+        blogDate: new Date().toLocaleDateString(),
+        generating: false
+      });
+      
+      wx.showToast({
+        title: '游记生成成功',
+        icon: 'success'
+      });
+      
+    } catch (error) {
+      console.error('生成游记失败:', error);
+      wx.showToast({
+        title: '生成失败，请重试',
+        icon: 'none'
+      });
+      this.setData({ generating: false });
+    }
+  },
+  
+  // 上传图片
+  uploadImages() {
+    const uploadPromises = this.data.images.map((imagePath, index) => {
+      const cloudPath = `travel-blogs/${Date.now()}-${index}.jpg`;
+      
+      return wx.cloud.uploadFile({
+        cloudPath,
+        filePath: imagePath
+      }).then(res => res.fileID);
+    });
+    
+    return Promise.all(uploadPromises);
+  },
+  
+  // 获取路线信息
+  async getRouteInfo() {
+    if (!this.data.routeId) return null;
+    
+    const db = wx.cloud.database();
+    const result = await db.collection('routes').doc(this.data.routeId).get();
+    return result.data;
+  },
+  
+  // 保存到数据库
+  async saveBlogToDB(blogData) {
+    const db = wx.cloud.database();
+    const result = await db.collection('travelBlogs').add({
+      data: {
+        ...blogData,
+        userId: this.getUserId(),
+        createdAt: db.serverDate(),
+        likes: 0,
+        shares: 0
+      }
+    });
+    
+    return result._id;
+  },
+  
+  // 获取用户ID
+  getUserId() {
+    // 实际应从用户信息获取
+    return wx.getStorageSync('openid') || 'anonymous';
+  },
+  
+  // 复制内容
+  copyBlog() {
+    wx.setClipboardData({
+      data: `${this.data.blogTitle}\n\n${this.data.blogContent}`,
+      success: () => {
+        wx.showToast({
+          title: '已复制到剪贴板',
+          icon: 'success'
+        });
+      }
+    });
+  },
+  
+  // 保存图片
+  saveToAlbum() {
+    // 生成游记图片并保存
+    wx.showLoading({ title: '生成图片中' });
+    
+    // 调用云函数生成图片
+    wx.cloud.callFunction({
+      name: 'generateBlogImage',
+      data: {
+        title: this.data.blogTitle,
+        content: this.data.blogContent,
+        images: this.data.images
+      }
+    }).then(res => {
+      wx.hideLoading();
+      
+      // 保存到相册
+      wx.saveImageToPhotosAlbum({
+        filePath: res.result.imageUrl,
+        success: () => {
+          wx.showToast({
+            title: '保存成功',
+            icon: 'success'
+          });
+        }
+      });
+    });
+  },
+  
+  // 分享
+  onShareAppMessage() {
+    return {
+      title: this.data.blogTitle,
+      path: `/pages/user/travelBlog/index?routeId=${this.data.routeId}`,
+      imageUrl: this.data.images[0] || ''
+    };
+  }
+});
+```
+
+### 6.4 AI导游模块（pages/user/guide/index）
+
+#### 页面结构实现
+```xml
+<!-- guide.wxml -->
+<view class="guide-container">
+  <!-- 顶部地图 -->
+  <view class="mini-map">
+    <map 
+      id="miniMap"
+      longitude="{{longitude}}"
+      latitude="{{latitude}}"
+      scale="16"
+      markers="{{currentMarker}}"
+      style="width: 100%; height: 200rpx;"
+    >
+    </map>
+  </view>
+  
+  <!-- 问答展示区 -->
+  <scroll-view class="chat-area" scroll-y scroll-into-view="{{scrollToView}}">
+    <block wx:for="{{messages}}" wx:key="index">
+      <view class="message {{item.role}}" id="msg{{index}}">
+        <view class="avatar">
+          <image 
+            src="{{item.role === 'user' ? userAvatar : aiAvatar}}" 
+            mode="aspectFill"
+          />
+        </view>
+        <view class="bubble">
+          <text class="content">{{item.content}}</text>
+          <text class="time">{{item.time}}</text>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+  
+  <!-- 输入区 -->
+  <view class="input-area">
+    <input 
+      type="text" 
+      placeholder="问AI导游..." 
+      value="{{inputText}}"
+      bindinput="onInput"
+      bindconfirm="sendMessage"
+      confirm-type="send"
+    />
+    <button 
+      class="send-btn" 
+      bindtap="sendMessage"
+      disabled="{{!inputText.trim()}}"
+    >
+      发送
+    </button>
+  </view>
+  
+  <!-- 快捷问题 -->
+  <view class="quick-questions" wx:if="{{quickQuestions.length > 0}}">
+    <text>快捷提问:</text>
+    <view class="question-tags">
+      <block wx:for="{{quickQuestions}}" wx:key="index">
+        <view class="tag" bindtap="useQuickQuestion" data-index="{{index}}">
+          {{item}}
+        </view>
+      </block>
+    </view>
+  </view>
+</view>
+```
+
+#### 交互逻辑实现
+```javascript
+// guide.js
+Page({
+  data: {
+    messages: [],
+    inputText: '',
+    scrollToView: '',
+    userAvatar: '/images/user-avatar.png',
+    aiAvatar: '/images/ai-avatar.png',
+    longitude: 0,
+    latitude: 0,
+    currentMarker: [],
+    quickQuestions: [
+      '这个景点的历史背景是什么？',
+      '有什么特色美食推荐？',
+      '最佳拍照点在哪里？',
+      '开放时间和门票价格？',
+      '附近有什么值得逛的地方？'
+    ],
+    poiId: null,
+    poiInfo: null
+  },
+  
+  onLoad(options) {
+    this.setData({ poiId: options.poiId });
+    this.loadPOIInfo(options.poiId);
+    this.initChat();
+  },
+  
+  // 加载POI信息
+  async loadPOIInfo(poiId) {
+    try {
+      // 调用腾讯地图MCP获取POI详情
+      const result = await wx.cloud.callFunction({
+        name: 'mcpProxy',
+        data: {
+          tool: 'placeDetail',
+          params: { id: poiId }
+        }
+      });
+      
+      this.setData({
+        poiInfo: result.data,
+        longitude: result.data.location.lng,
+        latitude: result.data.location.lat,
+        currentMarker: [{
+          id: 0,
+          latitude: result.data.location.lat,
+          longitude: result.data.location.lng,
+          iconPath: '/images/marker-red.png',
+          width: 30,
+          height: 30
+        }]
+      });
+      
+    } catch (error) {
+      console.error('加载POI信息失败:', error);
+    }
+  },
+  
+  // 初始化聊天
+  initChat() {
+    const welcomeMessage = {
+      role: 'assistant',
+      content: '您好！我是您的AI导游，可以为您讲解景点历史、推荐美食、提供游玩建议等。有什么问题尽管问我吧！',
+      time: this.getCurrentTime()
+    };
+    
+    this.setData({
+      messages: [welcomeMessage]
+    });
+  },
+  
+  // 输入处理
+  onInput(e) {
+    this.setData({ inputText: e.detail.value });
+  },
+  
+  // 发送消息
+  async sendMessage() {
+    const text = this.data.inputText.trim();
+    if (!text) return;
+    
+    // 添加用户消息
+    const userMessage = {
+      role: 'user',
+      content: text,
+      time: this.getCurrentTime()
+    };
+    
+    this.setData({
+      messages: [...this.data.messages, userMessage],
+      inputText: ''
+    });
+    
+    // 滚动到底部
+    this.scrollToBottom();
+    
+    // 显示AI思考中
+    const thinkingMessage = {
+      role: 'assistant',
+      content: '正在思考...',
+      time: this.getCurrentTime()
+    };
+    
+    this.setData({
+      messages: [...this.data.messages, thinkingMessage]
+    });
+    
+    try {
+      // 调用AI导游云函数
+      const response = await wx.cloud.callFunction({
+        name: 'aiGuideChat',
+        data: {
+          question: text,
+          poiInfo: this.data.poiInfo,
+          chatHistory: this.data.messages.slice(-10), // 最近10条消息
+          location: {
+            longitude: this.data.longitude,
+            latitude: this.data.latitude
+          }
+        }
+      });
+      
+      // 替换思考消息为实际回复
+      const messages = [...this.data.messages];
+      messages[messages.length - 1] = {
+        role: 'assistant',
+        content: response.data.answer,
+        time: this.getCurrentTime()
+      };
+      
+      this.setData({ messages });
+      this.scrollToBottom();
+      
+    } catch (error) {
+      console.error('AI回复失败:', error);
+      
+      // 替换为错误消息
+      const messages = [...this.data.messages];
+      messages[messages.length - 1] = {
+        role: 'assistant',
+        content: '抱歉，我暂时无法回答这个问题。请稍后再试或换个问题问我。',
+        time: this.getCurrentTime()
+      };
+      
+      this.setData({ messages });
+    }
+  },
+  
+  // 使用快捷问题
+  useQuickQuestion(e) {
+    const index = e.currentTarget.dataset.index;
+    const question = this.data.quickQuestions[index];
+    
+    this.setData({ inputText: question });
+    this.sendMessage();
+  },
+  
+  // 滚动到底部
+  scrollToBottom() {
+    const lastIndex = this.data.messages.length - 1;
+    this.setData({
+      scrollToView: `msg${lastIndex}`
+    });
+  },
+  
+  // 获取当前时间
+  getCurrentTime() {
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+});
+```
+
+## 七、云函数实现
+
+### 7.1 智能路线生成云函数
+```javascript
+// cloudfunctions/generateSmartRoute/index.js
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+
+// 引入腾讯地图MCP服务
+const mcpService = require('./mcp-service');
+
+exports.main = async (event, context) => {
+  const { location, interests, availableHours, date } = event;
+  
+  try {
+    // 1. 根据兴趣标签搜索相关POI
+    const pois = await searchPOIsByInterests(location, interests);
+    
+    // 2. 使用AI算法优化路线
+    const optimizedRoute = await optimizeRoute(pois, availableHours);
+    
+    // 3. 获取路线规划详情
+    const routeDetails = await getRouteDetails(optimizedRoute);
+    
+    // 4. 生成文化解说内容
+    const enrichedRoute = await enrichWithCulturalInfo(routeDetails);
+    
+    // 5. 检查天气并生成备选路线
+    const weather = await checkWeather(date, location);
+    const alternativeRoute = weather.includes('雨') 
+      ? await generateIndoorRoute(enrichedRoute)
+      : null;
+    
+    // 6. 保存到数据库
+    const routeId = await saveRouteToDB({
+      ...enrichedRoute,
+      indoorAlternative: alternativeRoute,
+      weatherCondition: weather
+    });
+    
+    return {
+      success: true,
+      routeId,
+      message: '路线生成成功'
+    };
+    
+  } catch (error) {
+    console.error('路线生成失败:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// 根据兴趣搜索POI
+async function searchPOIsByInterests(location, interests) {
+  const results = [];
+  
+  for (const interest of interests) {
+    // 调用腾讯地图MCP搜索
+    const pois = await mcpService.placeSearchNearby({
+      location: `${location.latitude},${location.longitude}`,
+      keyword: getKeywordByInterest(interest),
+      radius: 5000 // 5公里范围内
+    });
+    
+    results.push(...pois);
+  }
+  
+  return results;
+}
+
+// 优化路线算法
+async function optimizeRoute(pois, availableHours) {
+  // 使用旅行商问题(TSP)变种算法
+  // 考虑：距离、停留时间、兴趣匹配度、开放时间
+  
+  // 简化实现：按距离排序
+  return pois
+    .sort((a, b) => calculateDistance(a, b))
+    .slice(0, Math.min(pois.length, Math.ceil(availableHours / 1.5))); // 每个点平均1.5小时
+}
+
+// 获取路线详情
+async function getRouteDetails(waypoints) {
+  if (waypoints.length < 2) return { waypoints, polyline: [] };
+  
+  const polyline = [];
+  
+  // 获取每段路线的规划
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const from = waypoints[i];
+    const to = waypoints[i + 1];
+    
+    const route = await mcpService.directionDriving({
+      from: `${from.latitude},${from.longitude}`,
+      to: `${to.latitude},${to.longitude}`
+    });
+    
+    polyline.push(...route.polyline);
+  }
+  
+  return { waypoints, polyline };
+}
+
+// 丰富文化信息
+async function enrichWithCulturalInfo(route) {
+  const enrichedWaypoints = [];
+  
+  for (const poi of route.waypoints) {
+    // 调用AI生成文化解说
+    const description = await generateCulturalDescription(poi);
+    
+    enrichedWaypoints.push({
+      ...poi,
+      description,
+      stayTime: calculateStayTime(poi.category, description.length)
+    });
+  }
+  
+  return { ...route, waypoints: enrichedWaypoints };
+}
+
+// 生成室内路线
+async function generateIndoorRoute(originalRoute) {
+  // 搜索室内景点替换室外景点
+  const indoorPOIs = await mcpService.placeSearchNearby({
+    location: `${originalRoute.waypoints[0].latitude},${originalRoute.waypoints[0].longitude}`,
+    keyword: '博物馆|美术馆|商场|室内',
+    radius: 5000
+  });
+  
+  // 重新优化路线
+  return optimizeRoute(indoorPOIs, originalRoute.availableHours);
+}
+
+// 保存路线到数据库
+async function saveRouteToDB(routeData) {
+  const db = cloud.database();
+  const result = await db.collection('routes').add({
+    data: {
+      ...routeData,
+      createdAt: db.serverDate(),
+      status: 'active'
+    }
+  });
+  
+  return result._id;
+}
+```
+
+### 7.2 AI导游聊天云函数
+```javascript
+// cloudfunctions/aiGuideChat/index.js
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+
+// 引入AI大模型服务（以腾讯混元为例）
+const hunyuan = require('./hunyuan-service');
+// 引入RAG检索服务
+const ragService = require('./rag-service');
+
+exports.main = async (event, context) => {
+  const { question, poiInfo, chatHistory, location } = event;
+  
+  try {
+    // 1. 使用RAG检索相关知识
+    const relevantKnowledge = await ragService.search({
+      query: question,
+      poiId: poiInfo?.id,
+      location,
+      limit: 5
+    });
+    
+    // 2. 构建系统提示词
+    const systemPrompt = buildSystemPrompt(poiInfo, relevantKnowledge);
+    
+    // 3. 构建对话历史
+    const formattedHistory = formatChatHistory(chatHistory);
+    
+    // 4. 调用大模型生成回答
+    const answer = await hunyuan.generate({
+      system: systemPrompt,
+      messages: [...formattedHistory, { role: 'user', content: question }],
+      temperature: 0.7,
+      max_tokens: 500
+    });
+    
+    // 5. 验证回答准确性
+    const verifiedAnswer = await verifyAnswer(answer, relevantKnowledge);
+    
+    // 6. 记录对话历史（可选）
+    await saveChatHistory(question, verifiedAnswer, context);
+    
+    return {
+      success: true,
+      answer: verifiedAnswer,
+      references: relevantKnowledge.map(k => k.source)
+    };
+    
+  } catch (error) {
+    console.error('AI导游聊天失败:', error);
+    
+    // 返回友好的错误信息
+    return {
+      success: false,
+      answer: '抱歉，我暂时无法回答这个问题。您可以尝试问一些更具体的问题，或者稍后再试。',
+      error: error.message
+    };
+  }
+};
+
+// 构建系统提示词
+function buildSystemPrompt(poiInfo, knowledge) {
+  return `你是一位专业的AI导游，专门为游客提供景点讲解和服务。
+  
+当前景点信息：
+名称：${poiInfo?.title || '未知景点'}
+地址：${poiInfo?.address || '未知地址'}
+类别：${poiInfo?.category || '未知类别'}
+
+相关知识库：
+${knowledge.map(k => `- ${k.content}`).join('\n')}
+
+请遵循以下原则：
+1. 回答要专业、准确、生动有趣
+2. 结合景点的历史文化背景
+3. 提供实用的游玩建议
+4. 如果不知道确切信息，要诚实说明
+5. 保持友好、热情的服务态度
+6. 回答要简洁明了，避免冗长
+
+请用中文回答用户的问题。`;
+}
+
+// 格式化聊天历史
+function formatChatHistory(history) {
+  return history
+    .filter(msg => msg.role !== 'assistant' || !msg.content.includes('正在思考'))
+    .map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    }));
+}
+
+// 验证回答准确性
+async function verifyAnswer(answer, knowledge) {
+  // 简单验证：检查回答是否与知识库内容一致
+  // 实际应使用更复杂的验证逻辑
+  
+  const knowledgeText = knowledge.map(k => k.content).join(' ');
+  
+  // 如果回答明显与知识库不符，添加免责声明
+  if (!isAnswerConsistent(answer, knowledgeText)) {
+    return `${answer}\n\n（注：以上信息仅供参考，建议以官方信息为准）`;
+  }
+  
+  return answer;
+}
+
+// 保存聊天历史
+async function saveChatHistory(question, answer, context) {
+  const db = cloud.database();
+  const openid = cloud.getWXContext().OPENID;
+  
+  await db.collection('chat_history').add({
+    data: {
+      openid,
+      question,
+      answer,
+      timestamp: db.serverDate(),
+      source: 'ai_guide'
+    }
+  });
+}
+```
+
+### 7.3 RAG检索服务
+```javascript
+// cloudfunctions/rag-service/index.js
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+
+// 引入向量数据库服务（以腾讯云向量数据库为例）
+const vectorDB = require('./vector-db');
+
+exports.search = async ({ query, poiId, location, limit = 5 }) => {
+  try {
+    // 1. 查询向量数据库
+    const vectorResults = await vectorDB.search({
+      query,
+      filter: poiId ? { poiId } : {},
+      limit: limit * 2 // 多查一些用于后续筛选
+    });
+    
+    // 2. 根据位置距离排序
+    const sortedResults = location
+      ? sortByDistance(vectorResults, location)
+      : vectorResults;
+    
+    // 3. 去重和筛选
+    const uniqueResults = removeDuplicates(sortedResults);
+    
+    // 4. 返回最相关的结果
+    return uniqueResults.slice(0, limit);
+    
+  } catch (error) {
+    console.error('RAG检索失败:', error);
+    return [];
+  }
+};
+
+// 根据距离排序
+function sortByDistance(results, location) {
+  return results.sort((a, b) => {
+    const distA = calculateDistance(
+      location.latitude,
+      location.longitude,
+      a.latitude,
+      a.longitude
+    );
+    const distB = calculateDistance(
+      location.latitude,
+      location.longitude,
+      b.latitude,
+      b.longitude
+    );
+    return distA - distB;
+  });
+}
+
+// 去重
+function removeDuplicates(results) {
+  const seen = new Set();
+  return results.filter(item => {
+    const key = `${item.poiId}-${item.contentHash}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// 计算距离（简化版）
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // 地球半径（公里）
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+```
+
+## 八、部署和测试
+
+### 8.1 部署步骤
+1. **初始化云开发环境**
+   ```bash
+   # 安装云开发CLI
+   npm install -g @cloudbase/cli
+   
+   # 登录
+   tcb login
+   
+   # 初始化项目
+   tcb init
+   ```
+
+2. **部署云函数**
+   ```bash
+   # 部署单个云函数
+   tcb fn deploy generateSmartRoute
+   
+   # 部署所有云函数
+   tcb fn deploy
+   ```
+
+3. **配置数据库索引**
+   ```javascript
+   // 为routes集合创建复合索引
+   db.collection('routes').createIndex({
+     userId: 1,
+     createdAt: -1
+   });
+   
+   // 为knowledgeBase创建向量索引
+   db.collection('knowledgeBase').createIndex({
+     embeddings: 'vector'
+   });
+   ```
+
+4. **配置安全域名**
+   - 在云开发控制台添加小程序合法域名
+   - 配置腾讯地图API安全域名
+
+### 8.2 测试要点
+1. **功能测试**
+   - 路线生成准确性
+   - 地图交互流畅性
+
+###前端设计描述
+# 微信小程序智能伴游系统 - TDesign 前端交互设计规范
+
+## 一、设计系统框架
+
+### 1.1 设计语言基础
+- **设计理念**：一致性、简洁性、可用性
+- **设计原则**：贴近用户、清晰高效、包容性
+- **设计令牌**：统一的色彩、字体、间距、圆角体系
+- **响应式**：适配不同尺寸设备，确保移动端最佳体验
+
+### 1.2 色彩体系
+- **主色**：`#0052D9`（腾讯蓝）
+- **成功色**：`#00A870`
+- **警告色**：`#ED7B2F`
+- **错误色**：`#E34D59`
+- **中性色**：
+  - 文字主色：`rgba(0, 0, 0, 0.9)`
+  - 文字次色：`rgba(0, 0, 0, 0.6)`
+  - 文字弱色：`rgba(0, 0, 0, 0.4)`
+  - 描边色：`rgba(0, 0, 0, 0.1)`
+  - 分割线：`rgba(0, 0, 0, 0.08)`
+  - 背景色：`#F5F5F5`
+
+### 1.3 字体规范
+- **主字体**：`-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif`
+- **字号层级**：
+  - 标题1：34rpx
+  - 标题2：30rpx
+  - 标题3：28rpx
+  - 正文：28rpx
+  - 辅助文字：24rpx
+  - 说明文字：20rpx
+
+### 1.4 间距系统
+- **基础间距**：32rpx
+- **紧凑间距**：24rpx
+- **宽松间距**：40rpx
+- **卡片内间距**：24rpx
+- **卡片间间距**：16rpx
+
+## 二、页面交互设计规范
+
+### 2.1 个性化路线定制页面
+
+#### 整体布局
+- 使用**垂直流式布局**，顶部对齐
+- 安全边距：左右各24rpx
+- 使用**滚动视图**容纳长内容
+- 导航栏：沉浸式，返回按钮+页面标题
+
+#### 时间选择区
+- **容器**：卡片式设计，圆角16rpx，白色背景，阴影sm
+- **标题**：使用`t-typography`标题样式，文字主色
+- **时间选择器**：
+  - 使用`t-picker`组件
+  - 左侧图标：时钟图标
+  - 右侧箭头：下拉指示
+  - 选择状态：背景色`rgba(0, 82, 217, 0.1)`，边框主色
+- **标签布局**：水平排列，间距16rpx
+- **交互状态**：
+  - 正常：灰色描边
+  - 聚焦：蓝色边框，轻微缩放
+  - 已选：蓝色背景，白色文字
+
+#### 兴趣标签区
+- **容器**：同时间选择区
+- **标签网格**：
+  - 使用`t-tag`组件
+  - 布局：流式布局，最小宽度150rpx
+  - 间距：16rpx
+  - 高度：72rpx
+- **交互反馈**：
+  - 点击：背景色从`rgba(0, 0, 0, 0.04)`变为`rgba(0, 82, 217, 0.1)`
+  - 选中：实心背景`#0052D9`，白色文字
+  - 多选：最多可选5个，超限提示
+- **视觉层次**：
+  - 已选：实心背景，阴影sm
+  - 未选：描边样式
+
+#### 生成路线按钮
+- **样式**：
+  - 使用`t-button`主按钮
+  - 宽度：100%（扣除安全边距）
+  - 高度：96rpx
+  - 圆角：8rpx
+  - 字体：字号32rpx，字重500
+- **状态**：
+  - 默认：蓝色背景`#0052D9`
+  - 悬停：背景加深10%
+  - 点击：缩小至95%
+  - 禁用：`rgba(0, 0, 0, 0.1)`背景
+- **动效**：
+  - 点击波纹效果
+  - 加载状态：旋转图标+文字变化
+- **位置**：固定在底部，底部安全区域+24rpx
+
+### 2.2 地图路径规划页面
+
+#### 地图容器
+- **布局**：全屏覆盖
+- **样式**：无边框，沉浸式
+- **交互**：
+  - 双击缩放
+  - 双指缩放
+  - 长按呼出菜单
+- **控制按钮**：
+  - 定位按钮：右下角浮动
+  - 缩放按钮：右下角浮动
+  - 图层切换：左下角浮动
+
+#### Marker标记点
+- **样式**：
+  - 基础样式：蓝色圆点，阴影sm
+  - 选中样式：放大120%，红色边框
+  - 起点/终点：特殊图标标识
+- **动画**：
+  - 标记出现：轻微弹跳
+  - 选中：脉冲动画
+  - 移动：平滑过渡
+- **信息窗口**：
+  - 气泡样式，指向标记点
+  - 圆角8rpx，白色背景
+  - 阴影md
+  - 关闭按钮在右上角
+
+#### 路线连接线
+- **样式**：
+  - 实线：`#0052D9`
+  - 虚线：`rgba(0, 82, 217, 0.6)`
+  - 宽度：6rpx
+- **动效**：
+  - 绘制动画：从起点到终点渐显
+  - 流动效果：光点沿线移动
+- **状态**：
+  - 正常路线：蓝色实线
+  - 备选路线：灰色虚线
+  - 当前路段：高亮加粗
+
+#### 文化解说卡片
+- **容器**：
+  - 位置：底部上滑
+  - 高度：屏幕高度的40%
+  - 背景：毛玻璃效果
+  - 圆角：顶部16rpx
+- **内容区**：
+  - 图片：16:9比例，圆角8rpx
+  - 标题：文字主色，字号30rpx
+  - 描述：文字次色，字号28rpx
+  - 元信息：图标+文字，文字弱色
+- **交互**：
+  - 上滑：展开全屏
+  - 下拉：收起
+  - 左滑：下一个景点
+  - 右滑：上一个景点
+- **操作按钮**：
+  - 底部固定操作栏
+  - 分享、收藏、导航按钮
+  - 按钮间距均匀分布
+
+#### 天气切换提示
+- **样式**：
+  - 顶部浮动通知
+  - 背景：`#ED7B2F`（警告色）
+  - 文字：白色
+  - 圆角：0 0 16rpx 16rpx
+- **内容**：
+  - 图标：天气图标
+  - 文字：检测到下雨，已自动切换室内路线
+  - 操作：切换回室外
+- **动效**：
+  - 出现：从顶部滑入
+  - 消失：向上淡出
+  - 持续时间：5秒自动消失
+
+### 2.3 智慧游记生成页面
+
+#### 图片上传区
+- **布局**：
+  - 九宫格布局
+  - 最小高度：200rpx
+  - 间距：8rpx
+- **上传按钮**：
+  - 样式：虚线边框，圆角8rpx
+  - 图标：加号图标，蓝色
+  - 文字：添加照片，文字弱色
+- **图片项**：
+  - 圆角：8rpx
+  - 操作：删除按钮悬浮在右上角
+  - 加载状态：骨架屏+进度条
+- **交互**：
+  - 长按：进入多选模式
+  - 滑动：图片预览
+  - 删除：确认对话框
+
+#### 生成按钮
+- **样式**：
+  - 渐变背景：蓝色渐变
+  - 阴影：md级别
+  - 图标：右侧箭头图标
+- **状态**：
+  - 默认：蓝色渐变
+  - 禁用：灰色，无阴影
+  - 加载中：加载动画，文字变为"生成中"
+- **位置**：固定在上传区下方
+
+#### 游记展示卡片
+- **容器**：
+  - 白色背景
+  - 圆角：16rpx
+  - 阴影：md级别
+  - 内边距：32rpx
+- **头部**：
+  - 标题：文字主色，字号34rpx
+  - 副标题：文字弱色，字号24rpx
+  - 分隔线：1rpx rgba(0, 0, 0, 0.08)
+- **内容**：
+  - 行高：1.6倍
+  - 段落间距：16rpx
+  - 首行缩进：2字符
+- **图片区**：
+  - 横向滚动
+  - 图片间距：16rpx
+  - 圆角：8rpx
+- **动效**：
+  - 卡片出现：从下至上渐入
+  - 内容加载：逐行显示
+
+#### 分享操作区
+- **布局**：
+  - 水平等分布局
+  - 间距：8rpx
+- **按钮**：
+  - 图标按钮样式
+  - 文字在图标下方
+  - 点击反馈：缩小动画
+- **分享面板**：
+  - 底部弹出
+  - 毛玻璃背景
+  - 分享渠道图标网格
+- **复制反馈**：
+  - Toast提示
+  - 位置：居中底部
+  - 持续时间：2秒
+
+### 2.4 AI导游页面
+
+#### 顶部地图
+- **样式**：
+  - 高度：240rpx
+  - 圆角：0 0 16rpx 16rpx
+  - 阴影：轻微底部阴影
+- **标记点**：
+  - 当前定位：蓝色圆点
+  - 目标地点：红色图钉
+  - 方向指示：箭头图标
+- **缩放控制**：
+  - 浮动在右上角
+  - 迷你控制条
+
+#### 问答展示区
+- **容器**：
+  - 背景：`#F5F5F5`
+  - 内边距：24rpx
+- **消息气泡**：
+  - 用户消息：蓝色背景，右对齐
+  - AI消息：白色背景，左对齐
+  - 圆角：16rpx
+  - 最大宽度：80%
+- **头像**：
+  - 用户：圆形，用户图标
+  - AI：圆形，机器人图标
+  - 大小：64rpx
+- **时间戳**：
+  - 文字弱色
+  - 字号：20rpx
+  - 位置：消息下方
+- **滚动**：
+  - 新消息：自动滚动到底部
+  - 历史消息：手动滚动
+  - 滚动条：隐藏，滚动时显示
+
+#### 输入区
+- **布局**：
+  - 固定在底部
+  - 适配安全区域
+  - 毛玻璃背景
+- **输入框**：
+  - 圆角：24rpx
+  - 背景：白色
+  - 阴影：sm级别
+  - 占位符：文字弱色
+- **发送按钮**：
+  - 圆形，蓝色背景
+  - 发送图标
+  - 禁用状态：灰色
+- **语音输入**：
+  - 长按录音按钮
+  - 录音时：波形动画
+  - 识别中：转文字提示
+
+#### 快捷问题
+- **样式**：
+  - 气泡式标签
+  - 圆角：16rpx
+  - 背景：`rgba(0, 82, 217, 0.1)`
+  - 文字：蓝色
+- **布局**：
+  - 水平滚动
+  - 间距：16rpx
+  - 内边距：16rpx 24rpx
+- **交互**：
+  - 点击：填充输入框
+  - 长按：预览回答
+  - 动效：轻微缩放
+
+## 三、组件交互规范
+
+### 3.1 按钮交互
+- **点击反馈**：缩小至95%，300ms动画
+- **加载状态**：旋转图标+防重复点击
+- **禁用状态**：透明度0.4，无点击反馈
+- **浮动按钮**：跟随滚动，始终可见
+
+### 3.2 卡片交互
+- **点击反馈**：轻微阴影加深
+- **滑动操作**：向左滑动删除，向右滑动收藏
+- **拖拽排序**：长按进入拖拽模式
+- **展开收起**：平滑高度变化
+
+### 3.3 列表交互
+- **下拉刷新**：自定义加载动画
+- **上拉加载**：骨架屏+提示文字
+- **滑动删除**：确认后再删除
+- **多选模式**：批量操作工具栏
+
+### 3.4 表单交互
+- **输入验证**：实时验证+错误提示
+- **标签切换**：滑动切换+指示器
+- **选择器**：底部弹出+平滑动画
+- **评分组件**：星星填充动画
+
+## 四、动效设计
+
+### 4.1 页面过渡
+- **前进动画**：从右向左滑动
+- **返回动画**：从左向右滑动
+- **模态出现**：从下至上弹出
+- **模态消失**：从上至下滑出
+
+### 4.2 组件动效
+- **加载动画**：旋转图标+进度条
+- **切换动画**：淡入淡出+缩放
+- **列表加载**：骨架屏渐现
+- **图片加载**：模糊到清晰
+
+### 4.3 微交互
+- **点赞**：爱心放大+缩小
+- **收藏**：星星旋转+填充
+- **分享**：扩散波纹效果
+- **完成**：对勾绘制动画
+
+## 五、响应式设计
+
+### 5.1 断点适配
+- **小屏**：< 375rpx
+- **中屏**：375rpx - 414rpx
+- **大屏**：> 414rpx
+- **平板**：> 768rpx
+
+### 5.2 布局适配
+- **卡片**：小屏单列，大屏双列
+- **导航**：小屏底部，大屏左侧
+- **文字**：小屏缩小字号
+- **间距**：等比缩放
+
+## 六、无障碍设计
+
+### 6.1 视觉辅助
+- **对比度**：文字与背景对比度 ≥ 4.5:1
+- **焦点指示**：键盘导航时有明确焦点状态
+- **缩放支持**：支持系统缩放
+
+### 6.2 语音辅助
+- **语义化标签**：正确设置ARIA标签
+- **阅读顺序**：合理的DOM结构
+- **替代文本**：图片均有alt描述
+
+## 七、设计资源
+
+### 7.1 图标资源
+- 使用TDesign图标库
+- 尺寸：32rpx、48rpx、64rpx
+- 颜色：主色、次色、弱色
+
+### 7.2 图片规范
+- 格式：WebP（优先）、PNG、JPG
+- 尺寸：适配@2x、@3x
+- 加载：懒加载+渐进式加载
+
+### 7.3 字体图标
+- 使用TDesign字体图标
+- 按需加载
+- 颜色继承父级
+
+## 八、性能优化
+
+### 8.1 渲染优化
+- 虚拟列表
+- 图片懒加载
+- 组件懒加载
+- 骨架屏
+
+### 8.2 交互优化
+- 防抖节流
+- 请求缓存
+- 动画优化
+- 事件委托
+
+此设计规范基于TDesign设计语言，为智能伴游小程序提供完整的视觉和交互指导，确保用户体验的一致性和专业性。

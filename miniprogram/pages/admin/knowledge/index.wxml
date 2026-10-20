@@ -1,0 +1,38 @@
+<view class="page">
+  <view class="header">
+    <view class="title">{{t.knowledge.title}}</view>
+    <view class="actions">
+      <t-button theme="default" shape="circle" icon="search" variant="text" />
+      <t-button theme="primary" shape="circle" icon="add" />
+    </view>
+  </view>
+
+  <view class="filter-bar">
+    <t-tag variant="light" size="medium" checkable checked="{{true}}" class="filter-item">{{t.knowledge.all}}</t-tag>
+    <t-tag variant="light" size="medium" checkable class="filter-item">{{t.knowledge.attractions}}</t-tag>
+    <t-tag variant="light" size="medium" checkable class="filter-item">{{t.knowledge.food}}</t-tag>
+    <t-tag variant="light" size="medium" checkable class="filter-item">{{t.knowledge.culture}}</t-tag>
+  </view>
+
+  <view class="list">
+    <view class="list-item" wx:for="{{list}}" wx:key="index">
+      <view class="item-card">
+        <image src="{{item.image}}" mode="aspectFill" class="item-img" />
+        <view class="item-content">
+          <view class="item-header">
+            <view class="item-title">{{item.title}}</view>
+            <t-tag theme="success" variant="light" size="small">{{item.tag}}</t-tag>
+          </view>
+          <view class="item-sub">{{t.knowledge.category}}: {{item.category}} · {{item.time}}</view>
+          <view class="item-tags">
+            <t-tag wx:for="{{item.tags}}" wx:key="*this" wx:for-item="tag" variant="light" size="small" style="margin-right: 8rpx;">{{tag}}</t-tag>
+          </view>
+        </view>
+        <view class="item-actions">
+          <t-icon name="edit" size="40rpx" color="#ccc" style="margin-bottom: 32rpx;" />
+          <t-icon name="delete" size="40rpx" color="#ff4d4f" />
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

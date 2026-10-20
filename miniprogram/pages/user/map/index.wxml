@@ -1,0 +1,61 @@
+<view class="page">
+  <view class="map-container">
+    <map 
+      id="routeMap"
+      longitude="{{center.longitude}}" 
+      latitude="{{center.latitude}}" 
+      scale="{{mapScale}}" 
+      markers="{{markers}}" 
+      polyline="{{polyline}}"
+      show-location
+      class="route-map"
+    ></map>
+  </view>
+
+  <view class="header">
+    <view class="back-btn" bindtap="onBack">
+      <t-icon name="arrow-left" size="48rpx" />
+    </view>
+    <view class="title-card">
+      <view class="title">{{routeData.routeName || t.map.title}}</view>
+      <view class="subtitle">{{routeData.duration || t.map.subtitle}}</view>
+    </view>
+    <view class="share-btn">
+      <t-icon name="share" size="48rpx" />
+    </view>
+  </view>
+
+  <view 
+    class="bottom-sheet {{isDragging ? '' : 'smooth-transition'}}" 
+    style="height: {{sheetHeight}}vh"
+  >
+    <view 
+      class="drag-handle-area"
+      catch:touchstart="onDragStart"
+      catch:touchmove="onDragMove"
+      catch:touchend="onDragEnd"
+    >
+      <view class="handle"></view>
+    </view>
+    <scroll-view scroll-y class="timeline-scroll">
+      <view class="timeline">
+        <block wx:for="{{routeData.waypoints}}" wx:key="name">
+          <view class="timeline-item">
+            <view class="timeline-icon bg-blue">
+              <t-icon name="map" size="32rpx" color="#0052D9" />
+            </view>
+            <view class="timeline-content">
+              <view class="timeline-title">{{item.name}}</view>
+              <view class="timeline-time">Day {{item.day}} • {{item.stayTime}}</view>
+              <view class="timeline-desc">{{item.description}}</view>
+            </view>
+          </view>
+        </block>
+        
+        <view wx:if="{{!routeData}}" class="loading-state">
+          <t-loading theme="spinner" size="40rpx" text="Loading route..." />
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</view>

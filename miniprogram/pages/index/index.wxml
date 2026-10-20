@@ -1,0 +1,95 @@
+<view class="page" wx:if="{{t && t.home}}">
+  <!-- Header -->
+  <view class="header">
+    <view class="header-top">
+      <view>
+        <view class="title">{{t.home.title}}</view>
+        <view class="subtitle">{{t.home.subtitle}}</view>
+      </view>
+      <view class="lang-btn">{{t.common.languageName}}</view>
+    </view>
+  </view>
+
+  <!-- Swiper -->
+  <view class="section">
+    <swiper
+      class="home-swiper"
+      current="{{current}}"
+      autoplay="{{autoplay}}"
+      duration="{{duration}}"
+      interval="{{interval}}"
+      indicator-dots="{{true}}"
+      indicator-color="rgba(255, 255, 255, 0.6)"
+      indicator-active-color="#fff"
+      circular="{{true}}"
+    >
+      <swiper-item wx:for="{{swiperList}}" wx:key="index" bindtap="onSwiperTap" data-item="{{item}}">
+        <view class="swiper-content">
+          <image 
+            src="{{item.fileID}}" 
+            mode="aspectFill" 
+            class="swiper-image"
+            style="width: 100%; height: 100%; display: block;" 
+          />
+          <view class="image-card">
+            <text>{{item.name}}</text>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <!-- Grid Menu -->
+  <view class="section">
+    <view class="section-title">{{t.home.explore}}</view>
+    <t-grid column="{{2}}" theme="card">
+      <t-grid-item 
+        text="{{t.home.routes}}" 
+        icon="map" 
+        bindtap="onTapExploreDirect" 
+        data-url="/pages/user/routeInput/index" 
+        data-istab="true"
+      />
+      <t-grid-item 
+        text="{{t.home.menuTrans}}" 
+        icon="scan" 
+        bindtap="onTapExploreDirect" 
+        data-url="/pages/merchant/menuScan/index" 
+        data-istab="false"
+      />
+      <t-grid-item 
+        text="{{t.home.travelBlog}}" 
+        icon="image" 
+        bindtap="onTapExploreDirect" 
+        data-url="/pages/user/travelBlog/index" 
+        data-istab="true"
+      />
+      <t-grid-item 
+        text="{{t.home.aiGuide}}" 
+        icon="chat" 
+        bindtap="onTapExploreDirect" 
+        data-url="/pages/user/guide/index" 
+        data-istab="true"
+      />
+      <t-grid-item 
+        text="{{t.home.shop}}" 
+        icon="shop" 
+        bindtap="onTapExploreDirect" 
+        data-url="/pages/shop/index" 
+        data-istab="false"
+      />
+    </t-grid>
+  </view>
+
+  <!-- Today's Pick -->
+  <view class="section">
+    <view class="section-title">{{t.home.todaysPick}}</view>
+    <view class="recommend-card" bindtap="onRecommendTap">
+      <t-image src="https://images.unsplash.com/photo-1552554622-c322b72459b9?q=80&w=300&auto=format&fit=crop" width="100" height="100" mode="aspectFill" class="card-img" />
+      <view class="card-content">
+        <view class="card-title">{{t.home.yumChaTitle}}</view>
+        <view class="card-desc">{{t.home.yumChaDesc}}</view>
+      </view>
+    </view>
+  </view>
+</view>

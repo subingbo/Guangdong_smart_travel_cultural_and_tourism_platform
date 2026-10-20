@@ -1,0 +1,7 @@
+<t-tab-bar value="{{selected}}" bindchange="onChange" theme="tag" split="{{false}}">
+  <t-tab-bar-item value="pages/user/routeInput/index" icon="map">{{t.tabBar.route}}</t-tab-bar-item>
+  <t-tab-bar-item value="pages/user/travelBlog/index" icon="image">{{t.tabBar.blog}}</t-tab-bar-item>
+  <t-tab-bar-item value="pages/index/index" icon="home" class="home-tab">{{t.tabBar.home}}</t-tab-bar-item>
+  <t-tab-bar-item value="pages/user/guide/index" icon="chat">{{t.tabBar.guide}}</t-tab-bar-item>
+  <t-tab-bar-item value="pages/user/profile/index" icon="user">{{t.tabBar.profile}}</t-tab-bar-item>
+</t-tab-bar>

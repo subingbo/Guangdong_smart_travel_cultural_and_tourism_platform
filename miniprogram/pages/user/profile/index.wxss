@@ -1,0 +1,129 @@
+.page {
+  background-color: #f6f6f6;
+  min-height: 100vh;
+  padding-bottom: 200rpx;
+}
+
+.header {
+  background-color: #0052D9;
+  padding: 48rpx 32rpx 80rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  color: #fff;
+  border-bottom-left-radius: 24rpx;
+  border-bottom-right-radius: 24rpx;
+  margin-bottom: -48rpx;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+}
+
+.user-text {
+  margin-left: 24rpx;
+}
+
+.username {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 8rpx;
+}
+
+.user-tag {
+  font-size: 20rpx;
+  background-color: rgba(255,255,255,0.2);
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  display: inline-block;
+}
+
+.login-btn {
+  margin-top: 16rpx;
+  width: 160rpx;
+}
+
+.section {
+  padding: 0 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #0B1F2A;
+  margin-bottom: 16rpx;
+  padding-left: 4rpx;
+}
+
+.section-empty {
+  background: #E9EEF2;
+  color: #1A3C5A;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+}
+
+.poster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.poster-item {
+  display: flex;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.poster-image {
+  width: 180rpx;
+  height: 180rpx;
+  flex-shrink: 0;
+}
+
+.poster-meta {
+  padding: 16rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.poster-prompt {
+  color: #0B1F2A;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  max-height: 108rpx;
+  overflow: hidden;
+}
+
+.poster-time {
+  color: #1A3C5A;
+  font-size: 20rpx;
+}
+
+.footer-btn {
+  padding: 32rpx;
+  margin-top: 32rpx;
+}
+
+.avatar-container {
+  position: relative;
+  display: flex;
+}
+
+.edit-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid #fff;
+}

@@ -1,0 +1,1654 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>小程序页面预览（静态HTML汇总）</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #101a33;
+        --card: #0e1730;
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.62);
+        --muted2: rgba(255, 255, 255, 0.42);
+        --line: rgba(255, 255, 255, 0.12);
+        --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+        --phoneShadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+        --blue: #2f6bff;
+        --green: #26c281;
+        --orange: #ff8a34;
+        --pink: #ff4d7d;
+        --radius: 16px;
+        --radius2: 12px;
+        --phoneW: 375px;
+        --phoneH: 735px;
+        --safeBottom: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: radial-gradient(1000px 500px at 20% 0%, rgba(47, 107, 255, 0.25), transparent 55%),
+          radial-gradient(800px 600px at 85% 15%, rgba(38, 194, 129, 0.16), transparent 60%),
+          radial-gradient(900px 600px at 45% 100%, rgba(255, 77, 125, 0.14), transparent 55%), var(--bg);
+        color: var(--text);
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: linear-gradient(to bottom, rgba(11, 16, 32, 0.92), rgba(11, 16, 32, 0.76));
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar-inner {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 18px 18px;
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .title-wrap {
+        display: grid;
+        gap: 6px;
+      }
+      .title {
+        font-size: 18px;
+        font-weight: 750;
+        letter-spacing: 0.2px;
+      }
+      .subtitle {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .quicklinks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .pill {
+        border: 1px solid var(--line);
+        color: var(--muted);
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: rgba(16, 26, 51, 0.55);
+      }
+      .pill:hover {
+        color: var(--text);
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+
+      .wrap {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 1280px) {
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 860px) {
+        .grid {
+          grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+      }
+
+      .page-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(180deg, rgba(16, 26, 51, 0.62), rgba(14, 23, 48, 0.52));
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .page-head {
+        padding: 12px 12px 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(16, 26, 51, 0.8);
+      }
+      .page-name {
+        display: grid;
+        gap: 4px;
+      }
+      .page-title {
+        font-weight: 760;
+        font-size: 14px;
+        letter-spacing: 0.2px;
+        line-height: 1.1;
+      }
+      .page-path {
+        font-size: 12px;
+        color: var(--muted2);
+      }
+      .badge {
+        align-self: flex-start;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        padding: 6px 8px;
+        border-radius: 999px;
+        background: rgba(47, 107, 255, 0.14);
+      }
+
+      .phone {
+        width: 100%;
+        display: grid;
+        place-items: center;
+        padding: 12px;
+      }
+      .phone-inner {
+        width: var(--phoneW);
+        height: var(--phoneH);
+        border-radius: 28px;
+        background: #ffffff;
+        color: #111;
+        box-shadow: var(--phoneShadow);
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.14);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .statusbar {
+        height: 28px;
+        background: rgba(255, 255, 255, 0.92);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.62);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .status-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .sig {
+        width: 18px;
+        height: 10px;
+        border-radius: 3px;
+        border: 1px solid rgba(0, 0, 0, 0.25);
+        position: relative;
+      }
+      .sig::after {
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: 10px;
+        height: 6px;
+        background: rgba(0, 0, 0, 0.22);
+        border-radius: 2px;
+      }
+      .battery {
+        width: 22px;
+        height: 10px;
+        border-radius: 3px;
+        border: 1px solid rgba(0, 0, 0, 0.25);
+        position: relative;
+      }
+      .battery::after {
+        content: "";
+        position: absolute;
+        right: -3px;
+        top: 3px;
+        width: 2px;
+        height: 4px;
+        border-radius: 1px;
+        background: rgba(0, 0, 0, 0.25);
+      }
+      .battery::before {
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: 14px;
+        height: 6px;
+        background: rgba(47, 107, 255, 0.65);
+        border-radius: 2px;
+      }
+
+      .navbar {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 12px;
+        background: rgba(255, 255, 255, 0.92);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        font-weight: 760;
+        font-size: 15px;
+      }
+      .navbar.dark {
+        background: rgba(0, 0, 0, 0.08);
+      }
+      .navbar.custom {
+        background: rgba(0, 0, 0, 0);
+        border-bottom: 0;
+        position: relative;
+      }
+      .navbar.custom .nav-pill {
+        position: absolute;
+        left: 12px;
+        top: 10px;
+        height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.55);
+        color: rgba(255, 255, 255, 0.92);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .content {
+        flex: 1;
+        background: #f6f6f6;
+        padding: 14px 14px calc(var(--safeBottom) + 14px) 14px;
+        overflow: hidden;
+      }
+      .content.white {
+        background: #ffffff;
+      }
+      .content.nopad {
+        padding: 0;
+      }
+
+      .section {
+        margin-bottom: 12px;
+      }
+      .section-title {
+        font-size: 13px;
+        font-weight: 750;
+        color: rgba(0, 0, 0, 0.78);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .hint {
+        color: rgba(0, 0, 0, 0.46);
+        font-weight: 600;
+        font-size: 12px;
+      }
+
+      .hero {
+        background: linear-gradient(135deg, rgba(47, 107, 255, 0.16), rgba(38, 194, 129, 0.12));
+        border-radius: 14px;
+        padding: 14px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        display: grid;
+        gap: 8px;
+      }
+      .hero h3 {
+        margin: 0;
+        font-size: 16px;
+      }
+      .hero p {
+        margin: 0;
+        color: rgba(0, 0, 0, 0.55);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+      }
+      .col {
+        flex: 1;
+      }
+      .chiprow,
+      .t-tag-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip,
+      .t-tag {
+        font-size: 12px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        color: rgba(0, 0, 0, 0.68);
+      }
+      .chip.active,
+      .t-tag.t-tag--active {
+        border-color: rgba(47, 107, 255, 0.35);
+        color: rgba(47, 107, 255, 1);
+        background: rgba(47, 107, 255, 0.08);
+        font-weight: 700;
+      }
+
+      .card,
+      .t-card {
+        border-radius: 14px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 12px;
+      }
+      .card.soft,
+      .t-card.t-card--soft {
+        background: rgba(255, 255, 255, 0.78);
+      }
+      .divider {
+        height: 1px;
+        background: rgba(0, 0, 0, 0.08);
+        margin: 10px 0;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+      }
+      .kv .k {
+        font-weight: 720;
+        font-size: 13px;
+      }
+      .kv .v {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.54);
+      }
+
+      .grid2,
+      .t-grid.t-grid--2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .grid3,
+      .t-grid.t-grid--3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .tile,
+      .t-grid-item {
+        border-radius: 14px;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 12px;
+        display: grid;
+        gap: 6px;
+        min-height: 88px;
+      }
+      .tile .t,
+      .t-grid-item .t {
+        font-weight: 740;
+        font-size: 13px;
+        color: rgba(0, 0, 0, 0.78);
+      }
+      .tile .d,
+      .t-grid-item .d {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.5);
+      }
+      .dotrow {
+        display: flex;
+        gap: 6px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 99px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+      .dot.blue {
+        background: rgba(47, 107, 255, 0.75);
+      }
+      .dot.green {
+        background: rgba(38, 194, 129, 0.75);
+      }
+      .dot.orange {
+        background: rgba(255, 138, 52, 0.85);
+      }
+
+      .imgph {
+        width: 100%;
+        height: 130px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.02));
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        position: relative;
+        overflow: hidden;
+      }
+      .imgph.big {
+        height: 180px;
+      }
+      .imgph::after {
+        content: "";
+        position: absolute;
+        left: -40%;
+        top: -40%;
+        width: 80%;
+        height: 80%;
+        background: radial-gradient(circle at 40% 40%, rgba(47, 107, 255, 0.22), transparent 60%);
+        transform: rotate(12deg);
+      }
+      .imgph .label {
+        position: absolute;
+        left: 12px;
+        bottom: 10px;
+        font-size: 12px;
+        font-weight: 720;
+        color: rgba(0, 0, 0, 0.58);
+        background: rgba(255, 255, 255, 0.88);
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+
+      .search,
+      .t-input {
+        height: 36px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        color: rgba(0, 0, 0, 0.48);
+        font-size: 12px;
+      }
+      .btn,
+      .t-button {
+        height: 34px;
+        border-radius: 12px;
+        padding: 0 12px;
+        background: rgba(47, 107, 255, 1);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        font-weight: 740;
+        font-size: 12px;
+      }
+      .btn.light,
+      .t-button.t-button--variant-outline {
+        background: rgba(0, 0, 0, 0.06);
+        color: rgba(0, 0, 0, 0.72);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .btn.round,
+      .t-button.t-button--shape-round {
+        border-radius: 999px;
+      }
+
+      .list,
+      .t-cell-group {
+        display: grid;
+        gap: 10px;
+      }
+      .listitem,
+      .t-cell {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .avatar,
+      .t-avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: rgba(47, 107, 255, 0.12);
+        display: grid;
+        place-items: center;
+        color: rgba(47, 107, 255, 1);
+        font-weight: 820;
+        border: 1px solid rgba(47, 107, 255, 0.22);
+      }
+      .li-main {
+        flex: 1;
+      }
+      .li-title {
+        font-weight: 740;
+        font-size: 13px;
+        color: rgba(0, 0, 0, 0.78);
+      }
+      .li-desc {
+        margin-top: 4px;
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.5);
+      }
+      .chev {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: rgba(0, 0, 0, 0.03);
+        display: grid;
+        place-items: center;
+        color: rgba(0, 0, 0, 0.48);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .chat {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .chatlist {
+        flex: 1;
+        display: grid;
+        gap: 10px;
+        padding: 6px 0;
+      }
+      .msg {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+      }
+      .msg.right {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: 78%;
+        padding: 10px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        line-height: 1.35;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .bubble.bot {
+        background: #ffffff;
+        color: rgba(0, 0, 0, 0.74);
+        border-top-left-radius: 6px;
+      }
+      .bubble.user {
+        background: rgba(47, 107, 255, 1);
+        color: rgba(255, 255, 255, 0.96);
+        border-color: rgba(47, 107, 255, 0.12);
+        border-top-right-radius: 6px;
+      }
+      .chatinput {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding-top: 6px;
+      }
+      .inputph {
+        flex: 1;
+        height: 36px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: rgba(0, 0, 0, 0.03);
+        color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        font-size: 12px;
+      }
+      .sendbtn {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        background: rgba(47, 107, 255, 1);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-weight: 900;
+      }
+
+      .map {
+        height: 100%;
+        background: linear-gradient(135deg, rgba(47, 107, 255, 0.14), rgba(38, 194, 129, 0.08));
+        position: relative;
+        overflow: hidden;
+      }
+      .map::before {
+        content: "";
+        position: absolute;
+        inset: -40px;
+        background: radial-gradient(circle at 20% 30%, rgba(47, 107, 255, 0.25), transparent 55%),
+          radial-gradient(circle at 70% 60%, rgba(38, 194, 129, 0.18), transparent 60%),
+          linear-gradient(0deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.72));
+        filter: blur(0.2px);
+      }
+      .map .pin {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(255, 77, 125, 0.92);
+        border: 3px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+      }
+      .map .pin.one {
+        left: 22%;
+        top: 34%;
+      }
+      .map .pin.two {
+        left: 60%;
+        top: 44%;
+      }
+      .map .pin.three {
+        left: 42%;
+        top: 66%;
+      }
+      .map-overlay {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 18px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 16px;
+        padding: 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .map-mini {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .map-overlay .meta {
+        flex: 1;
+        display: grid;
+        gap: 4px;
+      }
+      .map-overlay .meta .name {
+        font-weight: 750;
+        font-size: 13px;
+      }
+      .map-overlay .meta .sub {
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.5);
+      }
+
+      .camera {
+        height: 100%;
+        background: radial-gradient(700px 400px at 50% 10%, rgba(255, 255, 255, 0.14), transparent 55%),
+          linear-gradient(180deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.62));
+        position: relative;
+        overflow: hidden;
+      }
+      .camera .frame {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        top: 120px;
+        height: 250px;
+        border-radius: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.55);
+        box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.04);
+      }
+      .camera .frame::after {
+        content: "";
+        position: absolute;
+        left: 10%;
+        right: 10%;
+        top: 50%;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.42);
+      }
+      .camera .tip {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        top: 64px;
+        color: rgba(255, 255, 255, 0.88);
+        font-weight: 760;
+        text-align: center;
+      }
+      .camera .bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 18px;
+        display: grid;
+        place-items: center;
+        gap: 12px;
+      }
+      .camera .snap {
+        width: 68px;
+        height: 68px;
+        border-radius: 999px;
+        border: 4px solid rgba(255, 255, 255, 0.9);
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .camera .small {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .tabbar,
+      .t-tab-bar {
+        height: 58px;
+        padding: 8px 10px calc(var(--safeBottom) + 8px) 10px;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.96);
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .tab,
+      .t-tab-bar-item {
+        display: grid;
+        place-items: center;
+        gap: 4px;
+        color: rgba(0, 0, 0, 0.48);
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .tab .ico,
+      .t-tab-bar-item .ico {
+        width: 22px;
+        height: 22px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .tab.active,
+      .t-tab-bar-item.t-is-active {
+        color: rgba(47, 107, 255, 1);
+      }
+      .tab.active .ico,
+      .t-tab-bar-item.t-is-active .ico {
+        background: rgba(47, 107, 255, 0.12);
+        border-color: rgba(47, 107, 255, 0.22);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="title-wrap">
+          <div class="title">小程序页面预览（静态HTML汇总）</div>
+          <div class="subtitle">用于策划书截图：当前项目页面 + 新增「线上商城」示意页 · 生成于 2026-03-27</div>
+        </div>
+        <nav class="quicklinks">
+          <a class="pill" href="#pages-index-index">Home</a>
+          <a class="pill" href="#pages-user-routeInput-index">Route</a>
+          <a class="pill" href="#pages-user-travelBlog-index">Blog</a>
+          <a class="pill" href="#pages-user-guide-index">Guide</a>
+          <a class="pill" href="#pages-user-profile-index">Profile</a>
+          <a class="pill" href="#pages-user-map-index">Map</a>
+          <a class="pill" href="#pages-merchant-index">Merchant</a>
+          <a class="pill" href="#pages-merchant-generate-index">Generate</a>
+          <a class="pill" href="#pages-merchant-chatbot-index">Chatbot</a>
+          <a class="pill" href="#pages-merchant-menuScan-index">Menu Scan</a>
+          <a class="pill" href="#pages-admin-knowledge-index">Admin</a>
+          <a class="pill" href="#pages-logs-logs">Logs</a>
+          <a class="pill" href="#pages-shop-index">线上商城</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="grid">
+        <section class="page-card" id="pages-index-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Home（首页）</div>
+              <div class="page-path">pages/index/index</div>
+            </div>
+            <div class="badge">Tab 页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">South Guangdong Tour</div>
+              <div class="content">
+                <div class="section">
+                  <div class="hero">
+                    <h3>探索粤南 · 今日推荐</h3>
+                    <p>轮播海报 + 快捷入口 + 推荐卡片（示意）</p>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title">
+                    <span>Banner</span>
+                    <span class="hint">Swiper</span>
+                  </div>
+                  <div class="imgph big"><div class="label">海报轮播（点击进入景点/活动）</div></div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>Explore</span><span class="hint">2 列网格</span></div>
+                  <div class="t-grid t-grid--2">
+                    <div class="t-grid-item">
+                      <div class="t">路线规划</div>
+                      <div class="d">输入偏好 · 生成行程</div>
+                      <div class="dotrow"><span class="dot blue"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">旅行博客</div>
+                      <div class="d">图文动态 · 收藏点赞</div>
+                      <div class="dotrow"><span class="dot orange"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">AI 导游</div>
+                      <div class="d">边走边问 · 推荐附近点</div>
+                      <div class="dotrow"><span class="dot green"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">地图</div>
+                      <div class="d">定位 · 标记 · 导航</div>
+                      <div class="dotrow"><span class="dot pink"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>Today's Pick</span><span class="hint">推荐卡片</span></div>
+                  <div class="t-cell">
+                    <div class="t-avatar">荐</div>
+                    <div class="li-main">
+                      <div class="li-title">早茶体验 · Yum Cha</div>
+                      <div class="li-desc">简短介绍文本，展示推荐内容</div>
+                    </div>
+                    <div class="chev">›</div>
+                  </div>
+                </div>
+              </div>
+              <div class="t-tab-bar">
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Route</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Blog</div></div>
+                <div class="t-tab-bar-item t-is-active"><div class="ico"></div><div>Home</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Guide</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Profile</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-user-routeInput-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Route（路线规划输入）</div>
+              <div class="page-path">pages/user/routeInput/index</div>
+            </div>
+            <div class="badge">Tab 页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">Plan Your Trip</div>
+              <div class="content">
+                <div class="section">
+                  <div class="section-title"><span>行程偏好</span><span class="hint">输入/选择</span></div>
+                  <div class="t-card">
+                    <div class="kv">
+                      <div class="k">目的地</div>
+                      <div class="v">广州 / 佛山 / 江门…</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="kv">
+                      <div class="k">出行天数</div>
+                      <div class="v">1 - 7 天</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="kv">
+                      <div class="k">预算</div>
+                      <div class="v">经济 / 标准 / 轻奢</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>偏好标签</span><span class="hint">可多选</span></div>
+                  <div class="t-tag-group">
+                    <div class="t-tag t-tag--active">美食</div>
+                    <div class="t-tag">古建</div>
+                    <div class="t-tag t-tag--active">海岛</div>
+                    <div class="t-tag">夜游</div>
+                    <div class="t-tag">亲子</div>
+                    <div class="t-tag">徒步</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="t-card t-card--soft">
+                    <div class="row" style="align-items: center; justify-content: space-between">
+                      <div>
+                        <div style="font-weight: 760; font-size: 13px">生成路线</div>
+                        <div style="margin-top: 4px; font-size: 12px; color: rgba(0, 0, 0, 0.52)">AI 组合景点 + 时间安排</div>
+                      </div>
+                      <div class="t-button">生成</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>预览（示意）</span><span class="hint">结果列表</span></div>
+                  <div class="t-cell-group">
+                    <div class="t-cell">
+                      <div class="t-avatar">D1</div>
+                      <div class="li-main">
+                        <div class="li-title">Day 1 · 老城漫步</div>
+                        <div class="li-desc">早茶 → 文化街区 → 夜景</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">D2</div>
+                      <div class="li-main">
+                        <div class="li-title">Day 2 · 岛屿轻旅行</div>
+                        <div class="li-desc">海边步道 → 特色小店</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="t-tab-bar">
+                <div class="t-tab-bar-item t-is-active"><div class="ico"></div><div>Route</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Blog</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Home</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Guide</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Profile</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-user-travelBlog-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Blog（旅行博客）</div>
+              <div class="page-path">pages/user/travelBlog/index</div>
+            </div>
+            <div class="badge">Tab 页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">Travel Blog</div>
+              <div class="content">
+                <div class="section">
+                  <div class="section-title"><span>动态流</span><span class="hint">图文卡片</span></div>
+                  <div class="t-cell-group">
+                    <div class="t-card">
+                      <div class="imgph"><div class="label">图：城市/景点</div></div>
+                      <div style="margin-top: 10px" class="kv">
+                        <div class="k">Shamian · 沙面</div>
+                        <div class="v">245 ♥ · 18 💬</div>
+                      </div>
+                      <div style="margin-top: 8px; font-size: 12px; color: rgba(0, 0, 0, 0.54); line-height: 1.45">
+                        一段简短的游记文案，展示内容与互动信息（示意）。
+                      </div>
+                    </div>
+                    <div class="t-card">
+                      <div class="imgph"><div class="label">图：美食/街景</div></div>
+                      <div style="margin-top: 10px" class="kv">
+                        <div class="k">Yum Cha · 早茶</div>
+                        <div class="v">120 ♥ · 5 💬</div>
+                      </div>
+                      <div style="margin-top: 8px; font-size: 12px; color: rgba(0, 0, 0, 0.54); line-height: 1.45">
+                        图文卡片 + 作者信息 + 点赞评论分享（示意）。
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="t-card t-card--soft">
+                    <div class="row" style="align-items: center; justify-content: space-between">
+                      <div style="font-weight: 760">发布新动态</div>
+                      <div class="t-button t-button--shape-round">+</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="t-tab-bar">
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Route</div></div>
+                <div class="t-tab-bar-item t-is-active"><div class="ico"></div><div>Blog</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Home</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Guide</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Profile</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-user-guide-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Guide（AI 导游）</div>
+              <div class="page-path">pages/user/guide/index</div>
+            </div>
+            <div class="badge">Tab 页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">AI Guide</div>
+              <div class="content nopad">
+                <div class="map" style="height: 320px">
+                  <span class="pin one"></span>
+                  <span class="pin two"></span>
+                  <span class="pin three"></span>
+                  <div style="position: absolute; left: 14px; top: 14px; right: 14px; display: flex; gap: 10px">
+                    <div class="t-input" style="flex: 1">附近有什么好玩的？</div>
+                    <div class="t-button t-button--variant-outline" style="height: 36px">定位</div>
+                  </div>
+                </div>
+                <div class="content" style="padding-top: 12px">
+                  <div class="section-title"><span>对话</span><span class="hint">推荐 + 路线</span></div>
+                  <div class="chat">
+                    <div class="chatlist">
+                      <div class="msg">
+                      <div class="t-avatar">AI</div>
+                        <div class="bubble bot">我可以根据你的位置推荐附近景点与美食，并帮你规划步行路线。</div>
+                      </div>
+                      <div class="msg right">
+                        <div class="bubble user">我想去一个适合拍照的地方，步行 10 分钟内。</div>
+                      </div>
+                      <div class="msg">
+                      <div class="t-avatar">AI</div>
+                        <div class="bubble bot">推荐：沙面建筑群（约 8 分钟）。需要我生成导航吗？</div>
+                      </div>
+                    </div>
+                    <div class="chatinput">
+                      <div class="t-input" style="flex: 1; justify-content: flex-start; background: rgba(0, 0, 0, 0.03)">输入你的问题…</div>
+                      <div class="t-button t-button--shape-round" style="width: 36px; height: 36px; padding: 0">➤</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="t-tab-bar">
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Route</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Blog</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Home</div></div>
+                <div class="t-tab-bar-item t-is-active"><div class="ico"></div><div>Guide</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Profile</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-user-profile-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Profile（个人中心）</div>
+              <div class="page-path">pages/user/profile/index</div>
+            </div>
+            <div class="badge">Tab 页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar" style="background: rgba(47, 107, 255, 0.95); color: #fff; border-bottom-color: rgba(255, 255, 255, 0.14)">
+                Profile
+              </div>
+              <div class="content">
+                <div class="section">
+                  <div class="t-card" style="background: rgba(47, 107, 255, 0.12); border-color: rgba(47, 107, 255, 0.25)">
+                    <div class="row" style="align-items: center">
+                      <div class="t-avatar" style="width: 44px; height: 44px; background: rgba(255, 255, 255, 0.22); color: #fff; border-color: rgba(255, 255, 255, 0.25)">
+                        U
+                      </div>
+                      <div class="col">
+                        <div style="font-weight: 780; color: #fff">游客 / 用户名</div>
+                        <div style="margin-top: 4px; font-size: 12px; color: rgba(255, 255, 255, 0.8)">海报生成记录 · 语言切换 · 入口</div>
+                      </div>
+                      <div class="t-button t-button--variant-outline" style="border-color: rgba(255, 255, 255, 0.25); color: rgba(255, 255, 255, 0.92); background: rgba(255, 255, 255, 0.12)">编辑</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>功能入口</span><span class="hint">列表</span></div>
+                  <div class="t-cell-group">
+                    <div class="t-cell">
+                      <div class="t-avatar">🗺</div>
+                      <div class="li-main">
+                        <div class="li-title">我的路线</div>
+                        <div class="li-desc">查看历史规划与收藏</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">🌐</div>
+                      <div class="li-main">
+                        <div class="li-title">语言切换</div>
+                        <div class="li-desc">中文 / English / 日本語…</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">🏪</div>
+                      <div class="li-main">
+                        <div class="li-title">商家中心</div>
+                        <div class="li-desc">内容生成 · 客服 · 菜单翻译</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">🛠</div>
+                      <div class="li-main">
+                        <div class="li-title">管理入口</div>
+                        <div class="li-desc">知识库维护（示意）</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>海报历史</span><span class="hint">列表/空态</span></div>
+                  <div class="t-card" style="color: rgba(0, 0, 0, 0.55); font-size: 12px; text-align: center; padding: 22px">
+                    暂无海报记录（示意）
+                  </div>
+                </div>
+              </div>
+              <div class="t-tab-bar">
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Route</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Blog</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Home</div></div>
+                <div class="t-tab-bar-item"><div class="ico"></div><div>Guide</div></div>
+                <div class="t-tab-bar-item t-is-active"><div class="ico"></div><div>Profile</div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-user-map-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Map（地图）</div>
+              <div class="page-path">pages/user/map/index</div>
+            </div>
+            <div class="badge">Custom Nav</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar custom">
+                <div class="nav-pill">‹ 返回 <span style="opacity: 0.72">地图</span></div>
+              </div>
+              <div class="content nopad">
+                <div class="map">
+                  <span class="pin one"></span>
+                  <span class="pin two"></span>
+                  <span class="pin three"></span>
+                  <div style="position: absolute; left: 14px; top: 14px; right: 14px; display: flex; gap: 10px">
+                    <div class="t-input" style="flex: 1; background: rgba(255, 255, 255, 0.92)">搜索景点/美食</div>
+                    <div class="t-button t-button--variant-outline" style="height: 36px; background: rgba(255, 255, 255, 0.92)">定位</div>
+                  </div>
+                  <div class="map-overlay">
+                    <div class="map-mini"></div>
+                    <div class="meta">
+                      <div class="name">沙面建筑群</div>
+                      <div class="sub">距你 0.8km · 评分 4.8</div>
+                    </div>
+                    <div class="t-button" style="height: 36px">导航</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-merchant-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Merchant（商家中心）</div>
+              <div class="page-path">pages/merchant/index</div>
+            </div>
+            <div class="badge">工具入口</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">Merchant Assistant</div>
+              <div class="content">
+                <div class="section">
+                  <div class="hero">
+                    <h3>商家助手</h3>
+                    <p>内容生成 · AI 客服 · 菜单翻译（示意）</p>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>AI 工具</span><span class="hint">列表</span></div>
+                  <div class="t-cell-group">
+                    <div class="t-cell">
+                      <div class="t-avatar">✍</div>
+                      <div class="li-main">
+                        <div class="li-title">内容生成</div>
+                        <div class="li-desc">海报/文案一键生成</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">💬</div>
+                      <div class="li-main">
+                        <div class="li-title">AI 客服</div>
+                        <div class="li-desc">自动回复与问题引导</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">📷</div>
+                      <div class="li-main">
+                        <div class="li-title">菜单翻译</div>
+                        <div class="li-desc">拍照识别 + 多语言翻译</div>
+                      </div>
+                      <div class="chev">›</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>数据概览</span><span class="hint">统计</span></div>
+                  <div class="t-grid t-grid--2">
+                    <div class="t-grid-item">
+                      <div class="t">今日互动</div>
+                      <div class="d">45 次</div>
+                      <div class="dotrow"><span class="dot blue"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">生成内容</div>
+                      <div class="d">128 条</div>
+                      <div class="dotrow"><span class="dot green"></span><span class="dot"></span><span class="dot"></span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-merchant-generate-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Generate（内容生成）</div>
+              <div class="page-path">pages/merchant/generate/index</div>
+            </div>
+            <div class="badge">表单页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">Content Generator</div>
+              <div class="content">
+                <div class="section">
+                  <div class="section-title"><span>原始文案</span><span class="hint">Textarea</span></div>
+                  <div class="t-card" style="height: 120px; color: rgba(0, 0, 0, 0.45); font-size: 12px; display: flex; align-items: center">
+                    在这里输入要生成/改写的文案（示意）
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>目标语言</span><span class="hint">Tag</span></div>
+                  <div class="t-tag-group">
+                    <div class="t-tag t-tag--active">English</div>
+                    <div class="t-tag">日本語</div>
+                    <div class="t-tag">한국어</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>风格</span><span class="hint">Radio</span></div>
+                  <div class="t-grid t-grid--2">
+                    <div class="t-grid-item">
+                      <div class="t">Instagram</div>
+                      <div class="d">更视觉化 + 表情</div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">Twitter / X</div>
+                      <div class="d">更精炼</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="t-card t-card--soft">
+                    <div class="row" style="align-items: center; justify-content: space-between">
+                      <div>
+                        <div style="font-weight: 760">生成</div>
+                        <div style="margin-top: 4px; font-size: 12px; color: rgba(0, 0, 0, 0.52)">生成文案/海报提示词（示意）</div>
+                      </div>
+                      <div class="t-button">开始</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>输出预览</span><span class="hint">结果</span></div>
+                  <div class="t-card" style="height: 120px; color: rgba(0, 0, 0, 0.52); font-size: 12px; line-height: 1.45">
+                    这里展示生成后的内容（示意）。<br />可以包含：标题、正文、标签、以及可复制按钮。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-merchant-chatbot-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Chatbot（AI 客服）</div>
+              <div class="page-path">pages/merchant/chatbot/index</div>
+            </div>
+            <div class="badge">对话页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">AI Assistant</div>
+              <div class="content white">
+                <div class="chat">
+                  <div class="chatlist">
+                    <div class="msg">
+                      <div class="t-avatar">AI</div>
+                      <div class="bubble bot">你好，我是店铺 AI 客服。你可以问我营业时间、菜单、交通等问题。</div>
+                    </div>
+                    <div class="msg right">
+                      <div class="bubble user">你们今天几点关门？</div>
+                    </div>
+                    <div class="msg">
+                      <div class="t-avatar">AI</div>
+                      <div class="bubble bot">今天营业到 22:00。需要我为你推荐招牌菜吗？</div>
+                    </div>
+                  </div>
+                  <div class="chatinput">
+                    <div class="t-input" style="flex: 1; justify-content: flex-start; background: rgba(0, 0, 0, 0.03)">输入消息…</div>
+                    <div class="t-button t-button--shape-round" style="width: 36px; height: 36px; padding: 0">➤</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-merchant-menuScan-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Menu Scan（菜单拍照翻译）</div>
+              <div class="page-path">pages/merchant/menuScan/index</div>
+            </div>
+            <div class="badge">Custom Nav</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar" style="background: rgba(0, 0, 0, 0.55); color: rgba(255, 255, 255, 0.86); border-bottom-color: rgba(255, 255, 255, 0.12)">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig" style="border-color: rgba(255, 255, 255, 0.36)"></span><span class="battery" style="border-color: rgba(255, 255, 255, 0.36)"></span></div>
+              </div>
+              <div class="navbar custom">
+                <div class="nav-pill">‹ 返回 <span style="opacity: 0.72">拍照翻译</span></div>
+              </div>
+              <div class="content nopad">
+                <div class="camera">
+                  <div class="tip">对准菜单，保持清晰</div>
+                  <div class="frame"></div>
+                  <div class="bottom">
+                    <div class="snap"></div>
+                    <div class="small">拍照识别 · OCR · 翻译（示意）</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-admin-knowledge-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Admin（知识库管理）</div>
+              <div class="page-path">pages/admin/knowledge/index</div>
+            </div>
+            <div class="badge">管理页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">Knowledge Base</div>
+              <div class="content">
+                <div class="section">
+                  <div class="row" style="align-items: center; justify-content: space-between">
+                    <div class="t-input" style="flex: 1">搜索条目/标签</div>
+                    <div style="width: 10px"></div>
+                    <div class="t-button">新增</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>筛选</span><span class="hint">Tag</span></div>
+                  <div class="t-tag-group">
+                    <div class="t-tag t-tag--active">全部</div>
+                    <div class="t-tag">景点</div>
+                    <div class="t-tag">美食</div>
+                    <div class="t-tag">交通</div>
+                    <div class="t-tag">商家</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>条目列表</span><span class="hint">Card</span></div>
+                  <div class="t-cell-group">
+                    <div class="t-cell">
+                      <div class="t-avatar">K</div>
+                      <div class="li-main">
+                        <div class="li-title">沙面建筑群 · 介绍</div>
+                        <div class="li-desc">分类：景点 · 标签：拍照 / 历史</div>
+                      </div>
+                      <div class="chev">✎</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">K</div>
+                      <div class="li-main">
+                        <div class="li-title">早茶点单 · 常见问答</div>
+                        <div class="li-desc">分类：美食 · 标签：点单 / 时间</div>
+                      </div>
+                      <div class="chev">✎</div>
+                    </div>
+                    <div class="t-cell">
+                      <div class="t-avatar">K</div>
+                      <div class="li-main">
+                        <div class="li-title">地铁换乘 · 指引</div>
+                        <div class="li-desc">分类：交通 · 标签：地铁 / 线路</div>
+                      </div>
+                      <div class="chev">✎</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-logs-logs">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">Logs（日志页）</div>
+              <div class="page-path">pages/logs/logs</div>
+            </div>
+            <div class="badge">开发页</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">Logs</div>
+              <div class="content white">
+                <div class="section-title"><span>最近日志</span><span class="hint">列表</span></div>
+                <div class="t-cell-group">
+                  <div class="t-cell">
+                    <div class="t-avatar">1</div>
+                    <div class="li-main">
+                      <div class="li-title">2026-03-27 09:41:12</div>
+                      <div class="li-desc">App launch</div>
+                    </div>
+                    <div class="chev">›</div>
+                  </div>
+                  <div class="t-cell">
+                    <div class="t-avatar">2</div>
+                    <div class="li-main">
+                      <div class="li-title">2026-03-27 09:42:05</div>
+                      <div class="li-desc">Navigate: Home</div>
+                    </div>
+                    <div class="chev">›</div>
+                  </div>
+                  <div class="t-cell">
+                    <div class="t-avatar">3</div>
+                    <div class="li-main">
+                      <div class="li-title">2026-03-27 09:43:48</div>
+                      <div class="li-desc">Request: /api/guide</div>
+                    </div>
+                    <div class="chev">›</div>
+                  </div>
+                  <div class="t-cell">
+                    <div class="t-avatar">4</div>
+                    <div class="li-main">
+                      <div class="li-title">2026-03-27 09:44:20</div>
+                      <div class="li-desc">Cache updated</div>
+                    </div>
+                    <div class="chev">›</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-card" id="pages-shop-index">
+          <div class="page-head">
+            <div class="page-name">
+              <div class="page-title">线上商城（新增示意页）</div>
+              <div class="page-path">建议新增：pages/shop/index</div>
+            </div>
+            <div class="badge">新页面</div>
+          </div>
+          <div class="phone">
+            <div class="phone-inner">
+              <div class="statusbar">
+                <div>9:41</div>
+                <div class="status-right"><span>5G</span><span class="sig"></span><span class="battery"></span></div>
+              </div>
+              <div class="navbar">线上商城</div>
+              <div class="content">
+                <div class="section">
+                  <div class="row" style="align-items: center; gap: 10px">
+                    <div class="t-input" style="flex: 1">搜索商品 / 店铺</div>
+                    <div class="t-button t-button--variant-outline" style="height: 36px">购物车</div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="imgph big"><div class="label">活动 Banner：满减 / 新人券 / 热门推荐</div></div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>分类</span><span class="hint">Grid</span></div>
+                  <div class="t-grid t-grid--3">
+                    <div class="t-grid-item">
+                      <div class="t">特产</div>
+                      <div class="d">伴手礼</div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">门票</div>
+                      <div class="d">景点</div>
+                    </div>
+                    <div class="t-grid-item">
+                      <div class="t">美食</div>
+                      <div class="d">团购</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="section-title"><span>热销商品</span><span class="hint">Card</span></div>
+                  <div class="t-grid t-grid--2">
+                    <div class="t-card">
+                      <div class="imgph"><div class="label">商品图</div></div>
+                      <div style="margin-top: 10px; font-weight: 760; font-size: 13px">广式点心礼盒</div>
+                      <div style="margin-top: 6px; display: flex; justify-content: space-between; align-items: center">
+                        <div style="color: rgba(255, 77, 125, 0.95); font-weight: 800">¥ 59.9</div>
+                        <div class="t-button t-button--shape-round" style="height: 30px">+</div>
+                      </div>
+                    </div>
+                    <div class="t-card">
+                      <div class="imgph"><div class="label">商品图</div></div>
+                      <div style="margin-top: 10px; font-weight: 760; font-size: 13px">景点联票</div>
+                      <div style="margin-top: 6px; display: flex; justify-content: space-between; align-items: center">
+                        <div style="color: rgba(255, 77, 125, 0.95); font-weight: 800">¥ 129</div>
+                        <div class="t-button t-button--shape-round" style="height: 30px">+</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="section">
+                  <div class="t-card t-card--soft">
+                    <div class="row" style="align-items: center; justify-content: space-between">
+                      <div>
+                        <div style="font-weight: 780">结算条（示意）</div>
+                        <div style="margin-top: 4px; font-size: 12px; color: rgba(0, 0, 0, 0.52)">已选 2 件 · 合计 ¥188.9</div>
+                      </div>
+                      <div class="t-button" style="background: rgba(38, 194, 129, 1)">去结算</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
