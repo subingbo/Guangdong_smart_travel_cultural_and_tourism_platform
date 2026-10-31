@@ -26,7 +26,7 @@ func (r *RouteRepo) Insert(ctx context.Context, rt *model.Route) error {
 }
 
 func (r *RouteRepo) FindByUser(ctx context.Context, userID int64) ([]model.Route, error) {
-	var list []model.Route
+	list := make([]model.Route, 0)
 	err := r.db.SelectContext(ctx, &list,
 		"SELECT * FROM routes WHERE user_id = ? ORDER BY created_at DESC", userID)
 	return list, err

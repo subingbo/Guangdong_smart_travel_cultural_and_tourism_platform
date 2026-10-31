@@ -28,7 +28,7 @@ export default function BlogPage() {
   const load = () =>
     api
       .get<Blog[]>('/api/blogs')
-      .then(setBlogs)
+      .then((data) => setBlogs(data || []))
       .catch(() => setBlogs([]))
       .finally(() => setLoading(false));
 
@@ -71,7 +71,10 @@ export default function BlogPage() {
 
   return (
     <div>
-      <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div
+        className="section-title"
+        style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}
+      >
         {t('blog.title')}
         <span>
           <Button icon={<RobotOutlined />} onClick={() => setDraftOpen(true)}>
@@ -90,24 +93,26 @@ export default function BlogPage() {
       ) : blogs.length === 0 ? (
         <Empty description={t('blog.empty')} />
       ) : (
-        blogs.map((b) => (
-          <div key={b.id} className="blog-card">
-            <h3 className="blog-title">{b.title}</h3>
-            <p className="blog-content">{b.content}</p>
-            {(b.images || []).map((img, i) => (
-              <img key={i} src={img} alt={b.title} />
-            ))}
-            <div style={{ marginTop: 8 }}>
-              <Button
-                size="small"
-                type={b.likedByMe ? 'primary' : 'default'}
-                onClick={() => like(b)}
-              >
-                ♥ {b.likes}
-              </Button>
+        <div className="blog-grid">
+          {blogs.map((b) => (
+            <div key={b.id} className="blog-card">
+              <h3 className="blog-title">{b.title}</h3>
+              <p className="blog-content">{b.content}</p>
+              {(b.images || []).map((img, i) => (
+                <img key={i} src={img} alt={b.title} />
+              ))}
+              <div style={{ marginTop: 8 }}>
+                <Button
+                  size="small"
+                  type={b.likedByMe ? 'primary' : 'default'}
+                  onClick={() => like(b)}
+                >
+                  ♥ {b.likes}
+                </Button>
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
 
       <Modal

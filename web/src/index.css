@@ -1,7 +1,35 @@
+:root {
+  --brand: #0052d9;
+  --brand-2: #13c2c2;
+  --page-bg: #f5f6f8;
+  --card-bg: #fff;
+  --muted: #777;
+  --border: #eee;
+  --header-height: 64px;
+  --content-max: 1200px;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  background: #f5f6f8;
+  background: var(--page-bg);
+  color: #1f2329;
   font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ------------------------------------------------------------------ *
+ * Mobile-first shell: bottom tab bar + single column (mini-program feel)
+ * ------------------------------------------------------------------ */
+.app-header {
+  display: none;
 }
 
 .page-container {
@@ -9,7 +37,6 @@ body {
   margin: 0 auto;
   padding: 16px 16px 88px;
   min-height: 100vh;
-  box-sizing: border-box;
 }
 
 /* Bottom tab bar: Route / Blog / Home / Guide / Profile */
@@ -21,10 +48,11 @@ body {
   display: flex;
   justify-content: space-around;
   background: #fff;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   z-index: 1000;
   max-width: 100%;
   margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .bottom-nav-item {
@@ -46,14 +74,22 @@ body {
 }
 
 .bottom-nav-item.active {
-  color: #0052d9;
+  color: var(--brand);
 }
 
-/* Home page */
+/* ------------------------------------------------------------------ *
+ * Shared blocks
+ * ------------------------------------------------------------------ */
+.section-title {
+  margin: 20px 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .home-hero {
   border-radius: 16px;
   padding: 32px 24px;
-  background: linear-gradient(135deg, #0052d9, #13c2c2);
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: #fff;
   margin-bottom: 16px;
 }
@@ -91,13 +127,7 @@ body {
 
 .quick-item .anticon {
   font-size: 24px;
-  color: #0052d9;
-}
-
-.section-title {
-  margin: 20px 0 10px;
-  font-size: 16px;
-  font-weight: 600;
+  color: var(--brand);
 }
 
 .scenic-card img {
@@ -106,6 +136,30 @@ body {
   object-fit: cover;
   border-radius: 12px;
   display: block;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.pick-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.pick-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.pick-body {
+  padding: 12px 14px 16px;
 }
 
 /* Guide chat */
@@ -127,7 +181,7 @@ body {
 
 .bubble.user {
   align-self: flex-end;
-  background: #0052d9;
+  background: var(--brand);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -139,25 +193,77 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
+.chat-input-bar {
+  display: flex;
+  gap: 8px;
+  position: sticky;
+  bottom: 70px;
+  background: var(--page-bg);
+  padding: 8px 0;
+  z-index: 10;
+}
+
 /* Route map */
+.route-map-wrap {
+  position: relative;
+}
+
 .route-map {
-  height: 320px;
+  height: 300px;
   border-radius: 12px;
   overflow: hidden;
+  background: #e9edf3;
+}
+
+.route-map-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.route-map-placeholder .ant-alert {
+  max-width: 520px;
+}
+
+.route-map-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 12px;
+}
+
+/* AMap marker bubble */
+.amap-marker {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 /* Blog cards */
 .blog-card {
   background: #fff;
   border-radius: 12px;
-  padding: 14px;
+  padding: 16px;
   margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .blog-card img {
   width: 100%;
-  height: 150px;
+  height: 180px;
   object-fit: cover;
   border-radius: 8px;
   margin-top: 10px;
@@ -174,4 +280,212 @@ body {
   color: #555;
   margin: 0;
   white-space: pre-wrap;
+}
+
+/* Page layouts (single column on mobile) */
+.route-layout,
+.profile-layout,
+.blog-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.route-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-shell {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+@media (max-width: 420px) {
+  .quick-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Tablet and desktop: top navigation + wider content
+ * ------------------------------------------------------------------ */
+@media (min-width: 768px) {
+  .app-header {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-header-inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    height: var(--header-height);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .app-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  .app-brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  }
+
+  .app-brand-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+  }
+
+  .app-brand-text b {
+    font-size: 15px;
+    color: #1f2329;
+  }
+
+  .app-brand-text small {
+    font-size: 11px;
+    color: #999;
+    letter-spacing: 0.02em;
+  }
+
+  .app-header-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .app-header-link {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    color: #555;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .app-header-link:hover {
+    background: #f2f4f7;
+    color: var(--brand);
+  }
+
+  .app-header-link.active {
+    background: rgba(0, 82, 217, 0.08);
+    color: var(--brand);
+    font-weight: 600;
+  }
+
+  .app-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .page-container {
+    max-width: var(--content-max);
+    padding: 24px 24px 48px;
+    min-height: calc(100vh - var(--header-height));
+  }
+
+  .bottom-nav {
+    display: none;
+  }
+
+  .home-hero {
+    padding: 48px 40px;
+  }
+
+  .home-hero h1 {
+    font-size: 36px;
+  }
+
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .blog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .blog-card {
+    margin-bottom: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .blog-grid .blog-content {
+    flex: 1;
+  }
+
+  .route-map {
+    height: 460px;
+  }
+
+  .chat-input-bar {
+    bottom: 16px;
+  }
+
+  .chat-box {
+    min-height: calc(100vh - 260px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .route-layout {
+    grid-template-columns: 360px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .route-sidebar {
+    position: sticky;
+    top: calc(var(--header-height) + 24px);
+  }
+
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (min-width: 1100px) {
+  .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .blog-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }

@@ -76,7 +76,7 @@ type BlogDraft struct {
 /** AI-drafts a blog post from a topic or rough notes. */
 func (s *BlogService) Draft(ctx context.Context, topic string) (*BlogDraft, error) {
 	systemPrompt := `You are a travel blogger writing about Guangzhou and Lingnan culture. Based on the user's topic or notes, produce a short blog post (200-300 words) in English with a friendly, vivid tone. Return ONLY valid JSON: { "title": string, "content": string }. Do NOT output markdown.`
-	raw, err := s.qwen.Chat(ctx, "qwen-plus", []ai.QwenMessage{
+	raw, err := s.qwen.ChatDefault(ctx, []ai.QwenMessage{
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: topic},
 	})

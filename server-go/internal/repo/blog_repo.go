@@ -22,7 +22,7 @@ const blogSelect = `
 	FROM travel_blogs b JOIN users u ON u.id = b.user_id`
 
 func (r *BlogRepo) FindAll(ctx context.Context, viewerID int64) ([]model.TravelBlog, error) {
-	var list []model.TravelBlog
+	list := make([]model.TravelBlog, 0)
 	err := r.db.SelectContext(ctx, &list, blogSelect+" ORDER BY b.created_at DESC", viewerID, viewerID)
 	return list, err
 }

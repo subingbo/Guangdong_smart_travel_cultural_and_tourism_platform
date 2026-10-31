@@ -50,7 +50,7 @@ export default function GuidePage() {
   };
 
   return (
-    <div>
+    <div className="guide-shell">
       <div className="section-title">{t('guide.title')}</div>
       <div className="chat-box">
         <div className="bubble assistant">{t('guide.welcome')}</div>
@@ -66,7 +66,7 @@ export default function GuidePage() {
         )}
         <div ref={bottomRef} />
       </div>
-      <div style={{ display: 'flex', gap: 8, position: 'sticky', bottom: 70, background: '#f5f6f8', padding: '8px 0' }}>
+      <div className="chat-input-bar">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}

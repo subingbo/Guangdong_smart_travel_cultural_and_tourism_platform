@@ -33,10 +33,6 @@ func NewTencentRouteClient(apiKey, apiURL string) *TencentRouteClient {
 
 func (t *TencentRouteClient) Enabled() bool { return t.apiKey != "" }
 
-type RouteResult struct {
-	Points []model.Coordinate
-}
-
 func (t *TencentRouteClient) FetchPolyline(ctx context.Context, waypoints []model.Waypoint, mode string) *RouteResult {
 	if !t.Enabled() || len(waypoints) < 2 {
 		return nil

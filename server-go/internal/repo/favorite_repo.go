@@ -12,7 +12,7 @@ type FavoriteRepo struct{ db *sqlx.DB }
 func NewFavoriteRepo(db *sqlx.DB) *FavoriteRepo { return &FavoriteRepo{db: db} }
 
 func (r *FavoriteRepo) FindPlacesByUser(ctx context.Context, userID int64) ([]model.Place, error) {
-	var list []model.Place
+	list := make([]model.Place, 0)
 	err := r.db.SelectContext(ctx, &list,
 		`SELECT p.* FROM favorites f JOIN places p ON p.id = f.place_id
 		 WHERE f.user_id = ? ORDER BY f.created_at DESC`, userID)

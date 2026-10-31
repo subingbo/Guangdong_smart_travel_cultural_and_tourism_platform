@@ -12,7 +12,7 @@ type KnowledgeRepo struct{ db *sqlx.DB }
 func NewKnowledgeRepo(db *sqlx.DB) *KnowledgeRepo { return &KnowledgeRepo{db: db} }
 
 func (r *KnowledgeRepo) SearchByKeyword(ctx context.Context, keyword string, limit int) ([]model.Knowledge, error) {
-	var list []model.Knowledge
+	list := make([]model.Knowledge, 0)
 	pattern := "%" + keyword + "%"
 	err := r.db.SelectContext(ctx, &list,
 		`SELECT * FROM knowledge

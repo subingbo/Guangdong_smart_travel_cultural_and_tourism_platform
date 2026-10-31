@@ -19,7 +19,7 @@ export default function HomePage() {
   useEffect(() => {
     api
       .get<ScenicImage[]>('/api/scenics')
-      .then(setScenics)
+      .then((data) => setScenics(data || []))
       .catch(() => setScenics([]))
       .finally(() => setLoading(false));
   }, []);
@@ -35,6 +35,10 @@ export default function HomePage() {
     { icon: <FileTextOutlined />, label: t('blog.title'), path: '/blog' },
   ];
 
+  // Rotate the picks by day instead of shuffling randomly (stable, reproducible UI).
+  const offset = scenics.length > 0 ? new Date().getDate() % scenics.length : 0;
+  const picks = [...scenics.slice(offset), ...scenics.slice(0, offset)].slice(0, 6);
+
   return (
     <div>
       <div className="home-hero">
@@ -47,7 +51,12 @@ export default function HomePage() {
           <Spin />
         </div>
       ) : (
-        <Carousel autoplay dots>
+        <Carousel
+          autoplay
+          dots
+          slidesToShow={3}
+          responsive={[{ breakpoint: 900, settings: { slidesToShow: 1 } }]}
+        >
           {scenics.map((s) => (
             <div key={s.id} className="scenic-card">
               <img src={s.imageUrl} alt={titleOf(s)} />
@@ -62,7 +71,7 @@ export default function HomePage() {
 
       <div className="quick-grid">
         {quickEntries.map((e, i) => (
-          <button key={i} className="quick-item" onClick={() => navigate(e.path)}>
+          <button key={i} type="button" className="quick-item" onClick={() => navigate(e.path)}>
             {e.icon}
             <span>{e.label}</span>
           </button>
@@ -70,20 +79,17 @@ export default function HomePage() {
       </div>
 
       <div className="section-title">{t('home.todaysPick')}</div>
-      {scenics.length > 0 &&
-        scenics
-          .slice()
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 2)
-          .map((s) => (
-            <div key={s.id} className="scenic-card" style={{ marginBottom: 14 }}>
-              <img src={s.imageUrl} alt={titleOf(s)} />
-              <div style={{ padding: '8px 4px' }}>
-                <b>{titleOf(s)}</b>
-                <div style={{ fontSize: 12, color: '#777' }}>{descOf(s)}</div>
-              </div>
+      <div className="card-grid">
+        {picks.map((s) => (
+          <article key={s.id} className="pick-card">
+            <img src={s.imageUrl} alt={titleOf(s)} />
+            <div className="pick-body">
+              <b>{titleOf(s)}</b>
+              <div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>{descOf(s)}</div>
             </div>
-          ))}
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

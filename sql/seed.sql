@@ -3,8 +3,8 @@ USE travel_gd;
 
 -- Demo user: username "demo", password "demo123" (bcrypt hash)
 INSERT INTO users (username, password_hash, nickname, avatar_url, language) VALUES
-('demo', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Traveler A', 'https://i.pravatar.cc/150?img=1', 'en'),
-('alice', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Traveler B', 'https://i.pravatar.cc/150?img=2', 'en');
+('demo', '$2a$10$WxZbvgVv.iDF7ursmeq4n.W.ZF2zFpCo84Ah/Q6QAZrbksnmyuODu', 'Traveler A', 'https://i.pravatar.cc/150?img=1', 'en'),
+('alice', '$2a$10$WxZbvgVv.iDF7ursmeq4n.W.ZF2zFpCo84Ah/Q6QAZrbksnmyuODu', 'Traveler B', 'https://i.pravatar.cc/150?img=2', 'en');
 
 INSERT INTO scenic_images (image_url, title_cn, title_en, location, tag, description_cn, description_en, sort_order) VALUES
 ('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee', '越秀山晨景', 'Morning at Yuexiu Hill', 'Guangzhou', 'nature', '清晨的越秀山空气清新，适合慢跑与散步。', 'Fresh morning air at Yuexiu Hill, perfect for jogging and strolling.', 1),

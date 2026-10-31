@@ -94,6 +94,7 @@ type Route struct {
 	Waypoints     WaypointList   `db:"waypoints" json:"waypoints"`
 	Polyline      CoordinateList `db:"polyline" json:"polyline"`
 	CreatedAt     time.Time      `db:"created_at" json:"createdAt"`
+	UpdatedAt     time.Time      `db:"updated_at" json:"updatedAt"`
 }
 
 type GuideMessage struct {

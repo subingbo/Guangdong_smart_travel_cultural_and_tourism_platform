@@ -44,7 +44,7 @@ func (r *GuideRepo) InsertMessage(ctx context.Context, m *model.GuideMessage) er
 }
 
 func (r *GuideRepo) FindMessages(ctx context.Context, sessionID int64) ([]model.GuideMessage, error) {
-	var list []model.GuideMessage
+	list := make([]model.GuideMessage, 0)
 	err := r.db.SelectContext(ctx, &list,
 		"SELECT * FROM guide_messages WHERE session_id = ? ORDER BY id ASC", sessionID)
 	return list, err
