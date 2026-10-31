@@ -69,7 +69,7 @@ func (s *GuideService) Chat(ctx context.Context, userID int64, req GuideChatRequ
 		messages = append(messages, ai.QwenMessage{Role: m.Role, Content: m.Content})
 	}
 
-	reply, err := s.qwen.Chat(ctx, "qwen-turbo", messages)
+	reply, err := s.qwen.ChatDefault(ctx, messages)
 	if err != nil {
 		return nil, err
 	}

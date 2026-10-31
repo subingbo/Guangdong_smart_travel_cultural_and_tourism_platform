@@ -13,7 +13,7 @@ type PlaceRepo struct{ db *sqlx.DB }
 func NewPlaceRepo(db *sqlx.DB) *PlaceRepo { return &PlaceRepo{db: db} }
 
 func (r *PlaceRepo) FindAll(ctx context.Context, tag string) ([]model.Place, error) {
-	var list []model.Place
+	list := make([]model.Place, 0)
 	var err error
 	if tag == "" {
 		err = r.db.SelectContext(ctx, &list, "SELECT * FROM places ORDER BY id ASC")

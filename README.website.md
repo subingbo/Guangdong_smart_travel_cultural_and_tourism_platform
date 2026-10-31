@@ -23,6 +23,12 @@ docker compose up -d --build
 MySQL 首次启动会自动执行 `sql/schema.sql` 和 `sql/seed.sql`。
 种子账号：`demo` / `demo123`。
 
+## 生产部署（Azure 单机）
+
+已部署到 `http://20.194.43.11:8091`：Go 后端（仅回环 `:18080`）+ nginx 独立端口 `:8091`，
+复用宿主机 MySQL 但使用独立 schema `travel_gd` 与专属用户，Redis 未使用。
+与同机既有服务共用 nginx，互不影响。部署、更新与回滚见 [deploy/README.md](deploy/README.md)。
+
 ## 本地开发（不用 Docker）
 
 1. 启动本机 MySQL 并执行 `sql/schema.sql`、`sql/seed.sql`。

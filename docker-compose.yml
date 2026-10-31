@@ -45,6 +45,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-chars}
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       TENCENT_MAP_API_KEY: ${TENCENT_MAP_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-qwen-plus}
+      AMAP_WEB_KEY: ${AMAP_WEB_KEY:-}
+      AMAP_ROUTE_URL: ${AMAP_ROUTE_URL:-https://restapi.amap.com/v3/direction}
+      AMAP_TRANSIT_CITY: ${AMAP_TRANSIT_CITY:-广州}
     depends_on:
       mysql:
         condition: service_healthy

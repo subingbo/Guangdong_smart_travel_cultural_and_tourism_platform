@@ -13,7 +13,7 @@ type ScenicRepo struct{ db *sqlx.DB }
 func NewScenicRepo(db *sqlx.DB) *ScenicRepo { return &ScenicRepo{db: db} }
 
 func (r *ScenicRepo) FindAll(ctx context.Context) ([]model.ScenicImage, error) {
-	var list []model.ScenicImage
+	list := make([]model.ScenicImage, 0)
 	err := r.db.SelectContext(ctx, &list,
 		"SELECT * FROM scenic_images ORDER BY sort_order ASC, id ASC")
 	return list, err

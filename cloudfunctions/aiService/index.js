@@ -16,6 +16,37 @@ const WANX_TASK_URL = 'https://dashscope.aliyuncs.com/api/v1/tasks/';
 const IMAGE_SYNTHESIS_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/image-synthesis';
 const QWEN_OCR_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 
+// Outbound request guard: only http/https, and only known provider hosts.
+// Rejects localhost, loopback, private and link-local addresses before any request.
+const PRIVATE_HOST_RE = /^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$)/i;
+
+function assertSafeUrl(raw, allowHost) {
+  const url = new URL(String(raw));
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('Blocked URL protocol');
+  }
+  const host = url.hostname.toLowerCase();
+  if (PRIVATE_HOST_RE.test(host) || host.endsWith('.local') || host.endsWith('.internal')) {
+    throw new Error('Blocked private URL host');
+  }
+  if (!allowHost(host)) {
+    throw new Error('Blocked URL host');
+  }
+  return url.toString();
+}
+
+const assertDashScopeUrl = (raw) =>
+  assertSafeUrl(raw, (host) => host === 'dashscope.aliyuncs.com' || host.endsWith('.aliyuncs.com'));
+const assertTencentUrl = (raw) => assertSafeUrl(raw, (host) => host === 'apis.map.qq.com');
+
+const TASK_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+function requireTaskId(value) {
+  if (typeof value !== 'string' || !TASK_ID_RE.test(value)) {
+    throw new Error('Invalid taskId');
+  }
+  return value;
+}
+
 exports.main = async (event, context) => {
   const { action, payload } = event;
   const wxContext = cloud.getWXContext();
@@ -88,7 +119,7 @@ async function handleChat(payload) {
     input: { messages },
     parameters: { result_format: 'message' }
   };
-  const response = await axios.post(CHAT_URL, requestBody, {
+  const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
   });
   if (response.data.output && response.data.output.choices) {
@@ -118,7 +149,7 @@ async function handleCopy(payload) {
     },
     parameters: { result_format: 'message' }
   };
-  const response = await axios.post(CHAT_URL, requestBody, {
+  const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
   });
   if (response.data.output && response.data.output.choices) {
@@ -153,7 +184,7 @@ async function handlePosterTaskCreate(payload) {
     },
     parameters: { size: finalSize, n: n || 1, watermark: false, prompt_extend: true }
   };
-  const response = await axios.post(WANX_ASYNC_URL, requestBody, {
+  const response = await axios.post(assertDashScopeUrl(WANX_ASYNC_URL), requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json', 'X-DashScope-Async': 'enable' }
   });
   if (response.data.output && response.data.output.task_id) {
@@ -163,8 +194,8 @@ async function handlePosterTaskCreate(payload) {
 }
 
 async function handlePosterTaskResult(payload, OPENID) {
-  const { taskId, prompt, size, n, style } = payload;
-  if (!taskId) throw new Error('taskId is required');
+  const { prompt, size, n, style } = payload;
+  const taskId = requireTaskId(payload.taskId);
   const db = cloud.database();
   const existed = await db.collection('poster_generations').where({ taskId }).limit(1).get();
   if (existed.data && existed.data.length > 0) {
@@ -173,7 +204,7 @@ async function handlePosterTaskResult(payload, OPENID) {
       return { success: true, imageUrl: record.imageUrl, originalUrl: record.originalUrl || '', status: 'SUCCEEDED' };
     }
   }
-  const response = await axios.get(`${WANX_TASK_URL}${taskId}`, {
+  const response = await axios.get(assertDashScopeUrl(`${WANX_TASK_URL}${taskId}`), {
     headers: { 'Authorization': `Bearer ${API_KEY}` }
   });
   const output = response.data.output || {};
@@ -185,7 +216,7 @@ async function handlePosterTaskResult(payload, OPENID) {
   const imageContent = choice.message && choice.message.content ? choice.message.content.find(c => c.image) : null;
   if (!imageContent) throw new Error('No image in task result');
   const imageUrl = imageContent.image;
-  const imageRes = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+  const imageRes = await axios.get(assertDashScopeUrl(imageUrl), { responseType: 'arraybuffer' });
   const buffer = imageRes.data;
   const timestamp = Date.now();
   const safeOpenId = OPENID || 'anonymous';
@@ -238,7 +269,7 @@ async function handleMenuTranslation(payload) {
     model: modelName,
     input: { image_url: targetUrl, source_lang: source_lang || 'auto', target_lang: target_lang || 'en' }
   };
-  const response = await axios.post(IMAGE_SYNTHESIS_URL, requestBody, {
+  const response = await axios.post(assertDashScopeUrl(IMAGE_SYNTHESIS_URL), requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json', 'X-DashScope-Async': 'enable' }
   });
   if (response.data.output && response.data.output.task_id) {
@@ -298,7 +329,7 @@ async function handleQwenOCR(payload) {
     ]
   };
 
-  const response = await axios.post(QWEN_OCR_URL, requestBody, {
+  const response = await axios.post(assertDashScopeUrl(QWEN_OCR_URL), requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
   });
 
@@ -349,7 +380,7 @@ async function handleKeywordExtraction(payload) {
     parameters: { result_format: 'message' }
   };
 
-  const response = await axios.post(CHAT_URL, requestBody, {
+  const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
   });
 
@@ -428,7 +459,7 @@ async function handleCultureCardGeneration(payload, OPENID) {
     parameters: { result_format: 'message', max_tokens: 512 }
   };
 
-  const response = await axios.post(CHAT_URL, requestBody, {
+  const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
   });
 
@@ -489,7 +520,7 @@ async function handleCultureCardGenerationStream(payload, OPENID) {
     temperature: 0.01
   };
 
-  const response = await axios.post(QWEN_OCR_URL, requestBody, {
+  const response = await axios.post(assertDashScopeUrl(QWEN_OCR_URL), requestBody, {
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
     responseType: 'stream'
   });
@@ -575,8 +606,10 @@ async function handleCultureCardTaskCreate(payload, OPENID) {
 }
 
 async function handleCultureCardTaskResult(payload, OPENID) {
-  const { taskId } = payload;
-  if (!taskId) throw new Error('taskId is required');
+  const rawTaskId = payload.taskId;
+  if (!rawTaskId) throw new Error('taskId is required');
+  const taskId = requireTaskId(rawTaskId);
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(taskId)) throw new Error('Invalid taskId');
   const db = cloud.database();
   const _ = db.command;
   const res = await db.collection('culture_cards').where({ taskId }).limit(1).get();
@@ -643,7 +676,7 @@ async function handleMenuExplanation(payload) {
   };
 
   try {
-    const response = await axios.post(CHAT_URL, requestBody, {
+    const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, {
       headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' }
     });
 
@@ -665,9 +698,17 @@ async function handleMenuExplanation(payload) {
 }
 
 async function handleTranslationResult(payload) {
-  const { taskId } = payload;
-  if (!taskId) throw new Error('taskId is required');
-  const response = await axios.get(`${WANX_TASK_URL}${taskId}`, { headers: { 'Authorization': `Bearer ${API_KEY}` } });
+  const rawTaskId = payload.taskId;
+  if (!rawTaskId) throw new Error('taskId is required');
+  const taskId = requireTaskId(rawTaskId);
+  const taskUrl = new URL(`${WANX_TASK_URL}${encodeURIComponent(taskId)}`);
+  if (taskUrl.protocol !== 'https:' || taskUrl.hostname !== 'dashscope.aliyuncs.com') {
+    throw new Error('Blocked task URL');
+  }
+  const response = await axios.get(taskUrl.toString(), {
+    headers: { 'Authorization': `Bearer ${API_KEY}` },
+    maxRedirects: 0,
+  });
   const output = response.data.output || {};
   const status = output.task_status;
   if (status !== 'SUCCEEDED') {
@@ -700,7 +741,7 @@ async function handleGenerateSmartRoute(payload, OPENID) {
     parameters: { result_format: 'message' }
   };
   try {
-    const response = await axios.post(CHAT_URL, requestBody, { headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } });
+    const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, { headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } });
     if (response.data.output && response.data.output.choices) {
       let content = response.data.output.choices[0].message.content;
       content = content.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -800,7 +841,7 @@ async function requestTencentRoute(points, mode = 'driving') {
   
   try {
     console.log('Requesting Tencent Map Direction:', { from, to, waypointsCount: waypointsList.length, mode });
-    const response = await axios.get(`https://apis.map.qq.com/ws/direction/v1/${mode}/`, { params });
+    const response = await axios.get(assertTencentUrl(`https://apis.map.qq.com/ws/direction/v1/${mode}/`), { params });
     
     if (!response.data || response.data.status !== 0) {
       console.error('Tencent Map API Error:', response.data);
@@ -889,7 +930,7 @@ async function handleAiGuideChat(payload) {
     parameters: { result_format: 'message' }
   };
   try {
-    const response = await axios.post(CHAT_URL, requestBody, { headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } });
+    const response = await axios.post('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', requestBody, { headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' } });
     if (response.data.output && response.data.output.choices) {
       return { success: true, data: response.data.output.choices[0].message };
     } else { throw new Error('Invalid response from Chat API'); }

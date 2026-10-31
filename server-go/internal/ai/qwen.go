@@ -17,22 +17,35 @@ import (
 type QwenClient struct {
 	apiKey  string
 	chatURL string
+	model   string
 	client  *http.Client
 }
 
-func NewQwenClient(apiKey, chatURL string) *QwenClient {
+func NewQwenClient(apiKey, chatURL, model string) *QwenClient {
+	if model == "" {
+		model = "qwen-plus"
+	}
 	return &QwenClient{
 		apiKey:  apiKey,
 		chatURL: chatURL,
+		model:   model,
 		client:  &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
 func (q *QwenClient) Enabled() bool { return q.apiKey != "" }
 
+/** Default model from AI_MODEL (qwen-plus unless overridden). */
+func (q *QwenClient) Model() string { return q.model }
+
 type QwenMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+/** Sends a chat completion request with the configured default model. */
+func (q *QwenClient) ChatDefault(ctx context.Context, messages []QwenMessage) (string, error) {
+	return q.Chat(ctx, q.model, messages)
 }
 
 /** Sends a chat completion request and returns the assistant message text. */

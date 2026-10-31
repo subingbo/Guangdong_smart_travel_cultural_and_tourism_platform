@@ -16,10 +16,10 @@ import (
 type RouteService struct {
 	routes *repo.RouteRepo
 	qwen   *ai.QwenClient
-	mapAPI *ai.TencentRouteClient
+	mapAPI ai.RouteProvider
 }
 
-func NewRouteService(routes *repo.RouteRepo, qwen *ai.QwenClient, mapAPI *ai.TencentRouteClient) *RouteService {
+func NewRouteService(routes *repo.RouteRepo, qwen *ai.QwenClient, mapAPI ai.RouteProvider) *RouteService {
 	return &RouteService{routes: routes, qwen: qwen, mapAPI: mapAPI}
 }
 
@@ -46,7 +46,7 @@ You MUST return a VALID JSON object matching the structure: { "routeName": strin
 Ensure coordinates are accurate for Guangzhou. Do NOT output markdown.`,
 		req.Days, pace, strings.Join(interests, ", "))
 
-	raw, err := s.qwen.Chat(ctx, "qwen-plus", []ai.QwenMessage{
+	raw, err := s.qwen.ChatDefault(ctx, []ai.QwenMessage{
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: "Plan my trip in Guangzhou."},
 	})
@@ -59,14 +59,19 @@ Ensure coordinates are accurate for Guangzhou. Do NOT output markdown.`,
 		return nil, err
 	}
 
-	// Enrich with a real road polyline when the Tencent key is configured; otherwise straight lines.
-	if result := s.mapAPI.FetchPolyline(ctx, route.Waypoints, mode); result != nil && len(result.Points) > 1 {
-		route.Polyline = result.Points
+	// Enrich with a real road polyline when a map provider is configured; otherwise straight lines.
+	geometry := s.mapAPI.FetchPolyline(ctx, route.Waypoints, mode)
+	if geometry != nil && len(geometry.Points) > 1 {
+		route.Polyline = geometry.Points
 	} else {
 		route.Polyline = straightLines(route.Waypoints)
 	}
 	if route.TotalDistance == "" {
-		route.TotalDistance = estimateDistance(route.Polyline)
+		if geometry != nil && geometry.DistanceMeters > 0 {
+			route.TotalDistance = formatMeters(geometry.DistanceMeters)
+		} else {
+			route.TotalDistance = estimateDistance(route.Polyline)
+		}
 	}
 
 	route.UserID = userID
@@ -133,6 +138,13 @@ func estimateDistance(polyline []model.Coordinate) string {
 		return fmt.Sprintf("%.1fkm", total/1000)
 	}
 	return fmt.Sprintf("%.0fm", total)
+}
+
+func formatMeters(meters int) string {
+	if meters >= 1000 {
+		return fmt.Sprintf("%.1fkm", float64(meters)/1000)
+	}
+	return fmt.Sprintf("%dm", meters)
 }
 
 func haversine(a, b model.Coordinate) float64 {

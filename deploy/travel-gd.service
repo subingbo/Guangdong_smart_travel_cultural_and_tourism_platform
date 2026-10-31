@@ -1,0 +1,30 @@
+# /etc/systemd/system/travel-gd.service
+# Runs the Go backend (server-go) on loopback only; nginx is the public entry.
+[Unit]
+Description=Travel Guangdong Go backend
+Documentation=file:///opt/travel-gd/README.md
+After=network-online.target mysql.service
+Wants=network-online.target
+Requires=mysql.service
+
+[Service]
+Type=simple
+User=travelgd
+Group=travelgd
+WorkingDirectory=/opt/travel-gd
+EnvironmentFile=/opt/travel-gd/etc/app.env
+ExecStart=/opt/travel-gd/bin/travel-gd-server
+Restart=always
+RestartSec=5
+TimeoutStopSec=15
+SuccessExitStatus=143
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# 2C1G host shared with another service: hard cap so a leak cannot take the box down.
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

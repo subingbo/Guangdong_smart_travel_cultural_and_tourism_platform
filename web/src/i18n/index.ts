@@ -5,7 +5,7 @@ import { getLanguage } from '../api/client';
 // Tourist-flow strings migrated from miniprogram/utils/i18n.ts.
 const en = {
   tab: { route: 'Route', blog: 'Blog', home: 'Home', guide: 'Guide', profile: 'Profile' },
-  common: { loading: 'Loading...', confirm: 'Confirm', cancel: 'Cancel', logout: 'Log Out', login: 'Login / Register' },
+  common: { loading: 'Loading...', confirm: 'Confirm', cancel: 'Cancel', logout: 'Log Out', login: 'Login / Register', brand: 'South Guangdong Tour' },
   home: {
     title: 'Welcome to Guangdong',
     subtitle: 'Explore Lingnan Culture with AI',
@@ -35,6 +35,7 @@ const en = {
     modeBicycling: 'Bicycling',
     modeTransit: 'Transit',
     myRoutes: 'My Routes',
+    empty: 'No routes yet. Generate one above.',
     distance: 'Distance',
   },
   blog: {
@@ -61,7 +62,6 @@ const en = {
     language: 'Language',
     loginToView: 'Login to view',
     username: 'Username',
-    password: 'Password',
     signIn: 'Sign In',
     signUp: 'Sign Up',
     switchToZh: '切换到中文',
@@ -71,7 +71,7 @@ const en = {
 
 const zh: typeof en = {
   tab: { route: '路线', blog: '游记', home: '首页', guide: '导游', profile: '我的' },
-  common: { loading: '加载中...', confirm: '确认', cancel: '取消', logout: '退出登录', login: '登录 / 注册' },
+  common: { loading: '加载中...', confirm: '确认', cancel: '取消', logout: '退出登录', login: '登录 / 注册', brand: '南粤文旅' },
   home: {
     title: '欢迎来到广东',
     subtitle: 'AI 伴游南粤文化',
@@ -101,6 +101,7 @@ const zh: typeof en = {
     modeBicycling: '骑行',
     modeTransit: '公交',
     myRoutes: '我的路线',
+    empty: '还没有路线，先在上方生成一条吧。',
     distance: '距离',
   },
   blog: {
@@ -127,7 +128,6 @@ const zh: typeof en = {
     language: '语言',
     loginToView: '登录后查看',
     username: '用户名',
-    password: '密码',
     signIn: '登录',
     signUp: '注册',
     switchToZh: '切换到中文',

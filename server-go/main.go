@@ -42,9 +42,22 @@ func main() {
 
 	qwen := ai.NewQwenClient(
 		env("DASHSCOPE_API_KEY", ""),
-		env("AI_CHAT_URL", "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"))
-	mapAPI := ai.NewTencentRouteClient(env("TENCENT_MAP_API_KEY", ""),
-		env("MAP_ROUTE_URL", "https://apis.map.qq.com/ws/direction/v1"))
+		env("AI_CHAT_URL", "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"),
+		env("AI_MODEL", "qwen-plus"))
+
+	// Prefer AMap. Tencent stays as a fallback for environments that only have
+	// the old key: AMap JS API keys cannot call the Web service API.
+	var mapAPI ai.RouteProvider
+	if amapKey := env("AMAP_WEB_KEY", ""); amapKey != "" {
+		mapAPI = ai.NewAmapClient(
+			amapKey,
+			env("AMAP_ROUTE_URL", "https://restapi.amap.com/v3/direction"),
+			env("AMAP_TRANSIT_CITY", "广州"))
+	} else {
+		mapAPI = ai.NewTencentRouteClient(
+			env("TENCENT_MAP_API_KEY", ""),
+			env("MAP_ROUTE_URL", "https://apis.map.qq.com/ws/direction/v1"))
+	}
 
 	// Repositories (= MyBatis mappers)
 	userRepo := repo.NewUserRepo(db)
@@ -107,5 +120,8 @@ func main() {
 	}
 
 	port := env("PORT", "8081")
-	_ = r.Run(":" + port)
+	// HOST is empty by default (listen on all interfaces) so docker-compose keeps
+	// working; production sets HOST=127.0.0.1 to keep the backend behind nginx.
+	host := env("HOST", "")
+	_ = r.Run(host + ":" + port)
 }

@@ -6,14 +6,16 @@ import enUS from 'antd/locale/en_US';
 import { useTranslation } from 'react-i18next';
 import App from './App';
 import 'antd/dist/reset.css';
-import 'leaflet/dist/leaflet.css';
 import './index.css';
 import './i18n';
 
 function Root() {
   const { i18n } = useTranslation();
   return (
-    <ConfigProvider locale={i18n.language === 'zh' ? zhCN : enUS}>
+    <ConfigProvider
+      locale={i18n.language === 'zh' ? zhCN : enUS}
+      theme={{ token: { colorPrimary: '#0052d9', borderRadius: 10 } }}
+    >
       <App />
     </ConfigProvider>
   );
