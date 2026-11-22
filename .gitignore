@@ -14,3 +14,13 @@ server-go/*.exe
 server-go/*.exe~
 web/node_modules/
 web/dist/
+*.tsbuildinfo
+
+# Local runtime data
+.local-uploads/
+*.local-shots-*.png
+temp_test_fileid.txt
+
+# Local agent/harness state
+.mimosa/
+.zcode/

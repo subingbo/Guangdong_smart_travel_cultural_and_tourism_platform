@@ -77,6 +77,14 @@ components:
           type: integer
         posts:
           type: integer
+        followers:
+          type: integer
+        following:
+          type: integer
+        likesReceived:
+          type: integer
+        unreadNotifications:
+          type: integer
 
     ScenicImage:
       type: object
@@ -127,6 +135,17 @@ components:
         descriptionEn:
           type: string
 
+    Author:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+
     Blog:
       type: object
       properties:
@@ -137,12 +156,7 @@ components:
           type: integer
           format: int64
         author:
-          type: object
-          properties:
-            nickname:
-              type: string
-            avatarUrl:
-              type: string
+          $ref: '#/components/schemas/Author'
         title:
           type: string
         content:
@@ -155,9 +169,155 @@ components:
           type: integer
         likedByMe:
           type: boolean
+        commentCount:
+          type: integer
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Page:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+
+    BlogPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Blog'
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        blogId:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        author:
+          $ref: '#/components/schemas/Author'
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CommentPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Comment'
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ProfileStats:
+      type: object
+      properties:
+        posts:
+          type: integer
+        followers:
+          type: integer
+        following:
+          type: integer
+        likesReceived:
+          type: integer
+
+    UserProfile:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/PublicUser'
+        stats:
+          $ref: '#/components/schemas/ProfileStats'
+        isFollowing:
+          type: boolean
+
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicUser'
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum: [like, comment, follow]
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        actor:
+          $ref: '#/components/schemas/Author'
+        blogId:
+          type: integer
+          format: int64
+        blogTitle:
+          type: string
+        commentContent:
+          type: string
+
+    NotificationPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Notification'
+            unread:
+              type: integer
+
+    UploadResult:
+      type: object
+      properties:
+        url:
+          type: string
+          example: /uploads/blog/2026/11/0123abcd.jpg
 
     RouteWaypoint:
       type: object
@@ -276,6 +436,260 @@ components:
           description: Omit to start a new session.
         question:
           type: string
+
+    AgentRunRequest:
+      type: object
+      required: [message]
+      properties:
+        conversationId:
+          type: integer
+          format: int64
+          description: Omit to create a new conversation.
+        message:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        clientRequestId:
+          type: string
+          maxLength: 36
+          description: Idempotency key; the same key + message returns the existing run.
+
+    AgentUsage:
+      type: object
+      properties:
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+
+    AgentError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    AgentPlanStop:
+      type: object
+      properties:
+        placeId:
+          type: integer
+          format: int64
+        name:
+          type: string
+        nameEn:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        source:
+          type: string
+          enum: [SYSTEM, FAVORITE, USER_LOCATION]
+        arrivalTime:
+          type: string
+          format: date-time
+        leaveTime:
+          type: string
+          format: date-time
+        stayMinutes:
+          type: integer
+        transportMode:
+          type: string
+
+    AgentPlanSegment:
+      type: object
+      properties:
+        fromIndex:
+          type: integer
+        toIndex:
+          type: integer
+        transportMode:
+          type: string
+        distanceMeters:
+          type: integer
+        durationMinutes:
+          type: integer
+        estimated:
+          type: boolean
+        polyline:
+          type: array
+          items:
+            type: object
+            properties:
+              lat:
+                type: number
+              lng:
+                type: number
+
+    AgentPlan:
+      type: object
+      properties:
+        version:
+          type: integer
+        plannerVersion:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        windowStart:
+          type: string
+          format: date-time
+        windowEnd:
+          type: string
+          format: date-time
+        transportMode:
+          type: string
+        routeConfidence:
+          type: string
+          enum: [AMAP, ESTIMATED, NONE]
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentPlanStop'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentPlanSegment'
+        totalTravelMinutes:
+          type: integer
+        totalDistanceMeters:
+          type: integer
+        score:
+          type: number
+          format: double
+        suggestions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [draft, confirmed]
+
+    AgentStep:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        runId:
+          type: integer
+          format: int64
+        stepNo:
+          type: integer
+        type:
+          type: string
+          enum: [llm, tool, plan]
+        name:
+          type: string
+        arguments:
+          type: string
+        result:
+          type: string
+        latencyMs:
+          type: integer
+        error:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AgentSnapshot:
+      type: object
+      properties:
+        runId:
+          type: integer
+          format: int64
+        conversationId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [queued, running, canceling, succeeded, failed, canceled, interrupted]
+        output:
+          type: string
+        plan:
+          $ref: '#/components/schemas/AgentPlan'
+        planVersion:
+          type: integer
+        stepCount:
+          type: integer
+        usage:
+          $ref: '#/components/schemas/AgentUsage'
+        error:
+          $ref: '#/components/schemas/AgentError'
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        seq:
+          type: integer
+          format: int64
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentStep'
+
+    AgentConfirmRequest:
+      type: object
+      required: [version, idempotencyKey]
+      properties:
+        version:
+          type: integer
+        idempotencyKey:
+          type: string
+          minLength: 8
+          maxLength: 64
+
+    AgentConfirmResponse:
+      type: object
+      properties:
+        routeId:
+          type: integer
+          format: int64
+        routeName:
+          type: string
+        totalDistance:
+          type: string
+        routeConfidence:
+          type: string
+
+    AgentConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        plan:
+          $ref: '#/components/schemas/AgentPlan'
+        planVersion:
+          type: integer
+        lastRunId:
+          type: integer
+          format: int64
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuideMessage'
+        createdAt:
+          type: string
+          format: date-time
 
   responses:
     Error:
@@ -623,7 +1037,32 @@ paths:
     get:
       tags: [blogs]
       security: []
-      summary: Blog feed (public)
+      summary: Blog feed (public, paginated)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: q
+          in: query
+          description: Keyword match on title/content.
+          schema:
+            type: string
+        - name: authorId
+          in: query
+          description: Filter by author.
+          schema:
+            type: integer
+            format: int64
       responses:
         '200':
           description: OK
@@ -635,9 +1074,7 @@ paths:
                   - type: object
                     properties:
                       data:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/Blog'
+                        $ref: '#/components/schemas/BlogPage'
     post:
       tags: [blogs]
       summary: Publish a blog post
@@ -719,13 +1156,53 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Blog'
         '404':
           $ref: '#/components/responses/Error'
-
-  /blogs/{id}/like:
-    post:
+    put:
       tags: [blogs]
-      summary: Like a blog post (idempotent per request, increments counter)
+      summary: Update a blog post (author only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Updated blog
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [blogs]
+      summary: Delete a blog post (author only)
       parameters:
         - name: id
           in: path
@@ -735,7 +1212,26 @@ paths:
             format: int64
       responses:
         '200':
-          description: New like count
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /blogs/{id}/like:
+    post:
+      tags: [blogs]
+      summary: Like a blog post (authenticated, idempotent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current like count and viewer state
           content:
             application/json:
               schema:
@@ -748,6 +1244,431 @@ paths:
                         properties:
                           likes:
                             type: integer
+                          likedByMe:
+                            type: boolean
+        '401':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [blogs]
+      summary: Unlike a blog post (authenticated)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current like count and viewer state
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /blogs/{id}/comments:
+    get:
+      tags: [blogs]
+      security: []
+      summary: List comments for a blog
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CommentPage'
+    post:
+      tags: [blogs]
+      summary: Create a comment (authenticated)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '201':
+          description: Created comment
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /comments/{id}:
+    delete:
+      tags: [blogs]
+      summary: Delete a comment (comment author or blog author)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Deleted
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /users/{id}:
+    get:
+      tags: [users]
+      security: []
+      summary: Public user profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+
+  /users/{id}/blogs:
+    get:
+      tags: [users]
+      security: []
+      summary: A user's blog posts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/BlogPage'
+
+  /users/{id}/follow:
+    post:
+      tags: [users]
+      summary: Follow a user (authenticated)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Following
+        '400':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [users]
+      summary: Unfollow a user (authenticated)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Not following
+
+  /users/{id}/followers:
+    get:
+      tags: [users]
+      security: []
+      summary: Followers of a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPage'
+
+  /users/{id}/following:
+    get:
+      tags: [users]
+      security: []
+      summary: Users followed by a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPage'
+
+  /me/blogs:
+    get:
+      tags: [blogs]
+      summary: My blog posts (authenticated)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/BlogPage'
+
+  /notifications:
+    get:
+      tags: [notifications]
+      summary: In-app notifications (authenticated)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, unread]
+            default: all
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NotificationPage'
+
+  /notifications/read:
+    post:
+      tags: [notifications]
+      summary: Mark specific notifications as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+      responses:
+        '200':
+          description: OK
+
+  /notifications/read-all:
+    post:
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        '200':
+          description: OK
+
+  /notifications/unread-count:
+    get:
+      tags: [notifications]
+      summary: Unread notification count
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          unread:
+                            type: integer
+
+  /upload:
+    post:
+      tags: [uploads]
+      summary: Upload a blog image or avatar (multipart/form-data)
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [blog, avatar]
+            default: blog
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Stored image path
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UploadResult'
+        '400':
+          $ref: '#/components/responses/Error'
 
   /guide/chat:
     post:
@@ -803,5 +1724,216 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/GuideSession'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /agent/runs:
+    post:
+      tags: [agent]
+      summary: Create an agent run (queued, then poll or stream it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRunRequest'
+      responses:
+        '202':
+          description: Run accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentSnapshot'
+        '409':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+
+  /agent/runs/{id}:
+    get:
+      tags: [agent]
+      summary: Run snapshot (poll fallback and reconnect)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentSnapshot'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /agent/runs/{id}/events:
+    get:
+      tags: [agent]
+      summary: Server-Sent Events stream for a run
+      description: |
+        The first event is always `snapshot`. Subsequent events are `delta`,
+        `thinking`, `tool_call`, `tool_result`, `plan`, `done`, `error`, and
+        `heartbeat` (15 s). `id:` carries the run sequence number; clients
+        should ignore events with seq <= the snapshot seq. Requires the normal
+        Authorization header, so use fetch streaming rather than EventSource.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  id: 0
+                  event: snapshot
+                  data: {"type":"snapshot","seq":0,"runId":12,"data":{"status":"running","output":""}}
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /agent/runs/{id}/cancel:
+    post:
+      tags: [agent]
+      summary: Cancel a running or queued run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current snapshot
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentSnapshot'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /agent/runs/{id}/plan/confirm:
+    post:
+      tags: [agent]
+      summary: Revalidate a draft and save it as a route (idempotent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfirmRequest'
+      responses:
+        '200':
+          description: Saved route
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentConfirmResponse'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /agent/conversations:
+    get:
+      tags: [agent]
+      summary: List the current user's agent conversations
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/AgentConversation'
+                          total:
+                            type: integer
+                          page:
+                            type: integer
+                          pageSize:
+                            type: integer
+
+  /agent/conversations/{id}:
+    get:
+      tags: [agent]
+      summary: Conversation messages plus the latest plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentConversation'
         '404':
           $ref: '#/components/responses/Error'

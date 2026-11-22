@@ -1,0 +1,44 @@
+{
+  "software": {
+    "full_name": "南粤文化入境游 AI 智能伴游系统",
+    "short_name": "南粤伴游",
+    "version": "V1.0",
+    "header": "南粤文化入境游 AI 智能伴游系统 V1.0"
+  },
+  "owner": {
+    "type": "individual",
+    "name": "subingbo",
+    "id_number": "【身份证号】",
+    "address": "【通讯地址】",
+    "postcode": "【邮政编码】",
+    "phone": "【联系电话】",
+    "email": "【电子邮箱】"
+  },
+  "dates": {
+    "dev_completed": "2026-11-01",
+    "first_published": "2026-11-01",
+    "published": true,
+    "doc_date": "2026-11-10"
+  },
+  "scope": {
+    "description": "微信小程序端、Web 游客端、Go 生产后端、Java 参考后端、MySQL 数据库",
+    "source_sample": "Go 后端 + React 前端为主，小程序、云函数、SQL、部署位于中段",
+    "include_java_in_sample": false,
+    "include_agent": true
+  },
+  "production": {
+    "url": "http://20.194.43.11:8091",
+    "backend": "Go，仅监听 127.0.0.1:18080",
+    "nginx_port": 8091,
+    "os": "Ubuntu 22.04",
+    "hardware": "2 核 1 GB",
+    "mysql_schema": "travel_gd",
+    "mysql_version": "8.0"
+  },
+  "document": {
+    "source_pages": 60,
+    "lines_per_page": 50,
+    "manual_min_pages": 30,
+    "manual_max_pages": 55
+  }
+}

@@ -1,154 +1,160 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Button, Empty, Input, Pagination, Skeleton, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Card,
-  Empty,
-  Form,
-  Input,
-  Modal,
-  Skeleton,
-  message,
-} from 'antd';
-import { RobotOutlined, PlusOutlined } from '@ant-design/icons';
-import { api, Blog } from '../api/client';
+import { api, Blog, Page } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import BlogCard from '../components/BlogCard';
+import BlogEditor from '../components/BlogEditor';
+
+const PAGE_SIZE = 9;
 
 export default function BlogPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const [blogs, setBlogs] = useState<Blog[]>([]);
+  const { user, openAuth } = useAuth();
+  const [data, setData] = useState<Page<Blog> | null>(null);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
-  const [publishOpen, setPublishOpen] = useState(false);
-  const [draftOpen, setDraftOpen] = useState(false);
-  const [drafting, setDrafting] = useState(false);
-  const [draft, setDraft] = useState<{ title: string; content: string } | null>(null);
-  const [form] = Form.useForm();
+  const [error, setError] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<Blog | null>(null);
 
-  const load = () =>
-    api
-      .get<Blog[]>('/api/blogs')
-      .then(setBlogs)
-      .catch(() => setBlogs([]))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<Page<Blog>>(
+        `/api/blogs?page=${page}&pageSize=${PAGE_SIZE}&q=${encodeURIComponent(q)}`,
+      );
+      setData(res);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, q]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
-  const publish = async (values: { title: string; content: string }) => {
+  const toggleLike = async (blog: Blog) => {
+    if (!user) {
+      openAuth();
+      return;
+    }
     try {
-      await api.post('/api/blogs', values);
-      message.success(t('blog.publish'));
-      setPublishOpen(false);
-      form.resetFields();
+      const res = blog.likedByMe
+        ? await api.del<{ likes: number; likedByMe: boolean }>(`/api/blogs/${blog.id}/like`)
+        : await api.post<{ likes: number; likedByMe: boolean }>(`/api/blogs/${blog.id}/like`);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((b) =>
+                b.id === blog.id ? { ...b, likes: res.likes, likedByMe: res.likedByMe } : b,
+              ),
+            }
+          : prev,
+      );
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const remove = async (blog: Blog) => {
+    try {
+      await api.del(`/api/blogs/${blog.id}`);
+      message.success(t('blog.deleteSuccess'));
       void load();
     } catch (e) {
       message.error((e as Error).message);
     }
   };
 
-  const generateDraft = async (topic: string) => {
-    setDrafting(true);
-    setDraft(null);
-    try {
-      setDraft(await api.post<{ title: string; content: string }>('/api/blogs/draft', { topic }));
-    } catch (e) {
-      message.error((e as Error).message);
-    } finally {
-      setDrafting(false);
+  const openEditor = (blog: Blog | null) => {
+    if (!user) {
+      openAuth();
+      return;
     }
-  };
-
-  const like = async (blog: Blog) => {
-    try {
-      const { likes } = await api.post<{ likes: number }>(`/api/blogs/${blog.id}/like`);
-      setBlogs((prev) => prev.map((b) => (b.id === blog.id ? { ...b, likes, likedByMe: true } : b)));
-    } catch (e) {
-      message.error((e as Error).message);
-    }
+    setEditing(blog);
+    setEditorOpen(true);
   };
 
   return (
     <div>
-      <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between' }}>
-        {t('blog.title')}
-        <span>
-          <Button icon={<RobotOutlined />} onClick={() => setDraftOpen(true)}>
-            {t('blog.aiDraft')}
-          </Button>{' '}
-          {user && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setPublishOpen(true)}>
-              {t('blog.newPost')}
-            </Button>
-          )}
-        </span>
+      <div className="blog-toolbar">
+        <div className="section-title" style={{ margin: 0 }}>
+          {t('blog.title')}
+        </div>
+        <div className="blog-toolbar-actions">
+          <Input.Search
+            allowClear
+            placeholder={t('blog.searchPlaceholder')}
+            onSearch={(value) => {
+              setQ(value.trim());
+              setPage(1);
+            }}
+            style={{ width: 240 }}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>
+            {t('blog.newPost')}
+          </Button>
+        </div>
       </div>
 
       {loading ? (
         <Skeleton active />
-      ) : blogs.length === 0 ? (
+      ) : error ? (
+        <Alert
+          type="error"
+          showIcon
+          message={error}
+          action={
+            <Button size="small" onClick={() => void load()}>
+              {t('common.retry')}
+            </Button>
+          }
+        />
+      ) : !data || data.items.length === 0 ? (
         <Empty description={t('blog.empty')} />
       ) : (
-        blogs.map((b) => (
-          <div key={b.id} className="blog-card">
-            <h3 className="blog-title">{b.title}</h3>
-            <p className="blog-content">{b.content}</p>
-            {(b.images || []).map((img, i) => (
-              <img key={i} src={img} alt={b.title} />
+        <>
+          <div className="blog-grid">
+            {data.items.map((b) => (
+              <BlogCard
+                key={b.id}
+                blog={b}
+                currentUserId={user?.id}
+                onLike={toggleLike}
+                onEdit={(item) => openEditor(item)}
+                onDelete={remove}
+              />
             ))}
-            <div style={{ marginTop: 8 }}>
-              <Button
-                size="small"
-                type={b.likedByMe ? 'primary' : 'default'}
-                onClick={() => like(b)}
-              >
-                ♥ {b.likes}
-              </Button>
-            </div>
           </div>
-        ))
+          <div className="pagination-row">
+            <Pagination
+              current={data.page}
+              pageSize={data.pageSize}
+              total={data.total}
+              showSizeChanger={false}
+              onChange={(p) => setPage(p)}
+            />
+          </div>
+        </>
       )}
 
-      <Modal
-        title={t('blog.newPost')}
-        open={publishOpen}
-        onCancel={() => setPublishOpen(false)}
-        onOk={() => form.submit()}
-      >
-        <Form form={form} layout="vertical" onFinish={publish}>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="content" label="Content" rules={[{ required: true }]}>
-            <Input.TextArea rows={6} />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        title={t('blog.aiDraft')}
-        open={draftOpen}
-        footer={null}
-        onCancel={() => {
-          setDraftOpen(false);
-          setDraft(null);
+      <BlogEditor
+        open={editorOpen}
+        initial={editing}
+        onClose={() => setEditorOpen(false)}
+        onSaved={() => {
+          setEditorOpen(false);
+          setPage(1);
+          void load();
         }}
-      >
-        <Input.Search
-          placeholder={t('blog.draftTopic')}
-          enterButton={t('blog.draftGenerate')}
-          onSearch={generateDraft}
-          loading={drafting}
-        />
-        {drafting && <Skeleton active style={{ marginTop: 16 }} />}
-        {draft && (
-          <Card style={{ marginTop: 16 }}>
-            <b>{draft.title}</b>
-            <p className="blog-content">{draft.content}</p>
-          </Card>
-        )}
-      </Modal>
+      />
     </div>
   );
 }

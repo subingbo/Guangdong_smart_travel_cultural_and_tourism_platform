@@ -8,6 +8,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jmoiron/sqlx v1.4.0
 	golang.org/x/crypto v0.27.0
+	golang.org/x/sync v0.12.0
 )
 
 require (

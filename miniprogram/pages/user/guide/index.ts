@@ -1,4 +1,7 @@
 import { getLanguage, getTranslations } from '../../../utils/i18n';
+import { guideChat } from '../../../services/api';
+import { getToken } from '../../../utils/auth';
+import { gotoLogin } from '../../../utils/request';
 
 Page({
   data: {
@@ -7,6 +10,7 @@ Page({
     toView: '',
     t: {} as any,
     loading: false,
+    sessionId: 0,
     mapCenter: {
       latitude: 23.1291,
       longitude: 113.2644
@@ -26,10 +30,11 @@ Page({
     wx.setNavigationBarTitle({
       title: lang === 'en' ? 'AI Guide' : 'AI 导游'
     });
-    
+
     this.initMap();
   },
   initMap() {
+    const lang = getLanguage();
     wx.getLocation({
       type: 'gcj02',
       success: (res) => {
@@ -44,12 +49,13 @@ Page({
             height: 40
           }]
         });
-        
+
         if (this.data.messages.length === 0) {
-          this.fetchWelcomeMessage(center);
+          this.showWelcome(lang);
         }
       },
       fail: () => {
+        // Devtools often denies location; keep the Guangzhou default center.
         const center = this.data.mapCenter;
         this.setData({
           mapMarkers: [{
@@ -60,49 +66,32 @@ Page({
             height: 40
           }]
         });
-        
+
         if (this.data.messages.length === 0) {
-          this.fetchWelcomeMessage(center);
+          this.showWelcome(lang);
         }
       }
     });
   },
-  async fetchWelcomeMessage(location: { latitude: number, longitude: number }) {
+  showWelcome(lang: string) {
+    const welcome = lang === 'zh'
+      ? '你好！我是你的 AI 导游，欢迎来到广东。想了解早茶怎么吃、去哪里看夜景，还是规划一条一日游路线？直接问我吧。'
+      : 'Hi! I am your AI guide for Guangdong. Ask me about dim sum, night views, or a one-day route plan.';
     this.setData({
-      loading: true,
-      messages: [{ text: 'Thinking...', isUser: false, isThinking: true }]
+      messages: [{ text: welcome, isUser: false }]
     });
-
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'ai_guide_chat',
-          payload: {
-            type: 'welcome',
-            context: {
-              location
-            }
-          }
-        }
-      });
-
-      if (res.result && (res.result as any).success) {
-        const aiMsg = (res.result as any).data.content;
-        this.setData({
-          messages: [{ text: aiMsg, isUser: false }],
-          loading: false
-        });
-      } else {
-        throw new Error('AI Service Failed');
+  },
+  requireLogin(): boolean {
+    if (getToken()) return true;
+    wx.showModal({
+      title: '需要登录',
+      content: 'AI 导游对话需要先登录，是否前往登录页？',
+      confirmText: '去登录',
+      success: (res) => {
+        if (res.confirm) gotoLogin();
       }
-    } catch (err) {
-      console.error(err);
-      this.setData({
-        messages: [{ text: this.data.t.guide.initialMsg, isUser: false }],
-        loading: false
-      });
-    }
+    });
+    return false;
   },
   onInputChange(e: any) {
     this.setData({ inputValue: e.detail.value });
@@ -110,83 +99,34 @@ Page({
   async onSend() {
     const text = this.data.inputValue;
     if (!text.trim() || this.data.loading) return;
-    
+    if (!this.requireLogin()) return;
+
     const newMessages = [...this.data.messages, { text, isUser: true }];
     this.setData({
-      messages: newMessages,
+      messages: [...newMessages, { text: 'Thinking...', isUser: false, isThinking: true }],
       inputValue: '',
-      toView: `msg-${newMessages.length - 1}`,
+      toView: `msg-${newMessages.length}`,
       loading: true
-    });
-    
-    // Add a placeholder for AI thinking
-    this.setData({
-      messages: [...newMessages, { text: 'Thinking...', isUser: false, isThinking: true }]
     });
 
     try {
-      // Convert history to format expected by AI
-      const historyMessages = this.data.messages.filter(m => !m.isThinking);
-      // Exclude the last message (current user question) as it's sent separately
-      const history = historyMessages.slice(0, -1).map(m => ({
-        role: m.isUser ? 'user' : 'assistant',
-        content: m.text
-      }));
-
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'ai_guide_chat',
-          payload: {
-            question: text,
-            history: history.slice(-6), // Keep last 6 turns context
-            context: {
-              location: {
-                latitude: this.data.mapCenter.latitude,
-                longitude: this.data.mapCenter.longitude
-              }
-            }
-          }
-        }
+      const resp = await guideChat(this.data.sessionId, text.trim());
+      const cleanMessages = this.data.messages.filter(m => !m.isThinking);
+      this.setData({
+        messages: [...cleanMessages, { text: resp.reply, isUser: false }],
+        sessionId: resp.sessionId || this.data.sessionId,
+        toView: `msg-${cleanMessages.length}`
       });
-
-      const result = res.result as any;
-      
-      // Remove thinking message and add actual response
-      const updatedMessages = [...this.data.messages]; // get latest
-      // The thinking message is the last one we added, but user might have typed more? 
-      // Safe to just append the response.
-      
-      // Actually, let's filter out the thinking bubble first
-      const cleanMessages = updatedMessages.filter(m => !m.isThinking);
-
-      if (result.success && result.data) {
-        this.setData({
-          messages: [...cleanMessages, { 
-            text: result.data.content, 
-            isUser: false 
-          }],
-          toView: `msg-${cleanMessages.length}`
-        });
-      } else {
-        this.setData({
-          messages: [...cleanMessages, { 
-            text: 'Sorry, I encountered an error. Please try again.', 
-            isUser: false,
-            isError: true
-          }]
-        });
-      }
-
     } catch (error) {
       console.error('AI Chat Error:', error);
-      const updatedMessages = this.data.messages.filter(m => !m.isThinking);
+      const cleanMessages = this.data.messages.filter(m => !m.isThinking);
       this.setData({
-        messages: [...updatedMessages, { 
-          text: 'Network error. Please check your connection.', 
+        messages: [...cleanMessages, {
+          text: 'Sorry, I encountered an error. Please try again.',
           isUser: false,
           isError: true
-        }]
+        }],
+        toView: `msg-${cleanMessages.length}`
       });
     } finally {
       this.setData({ loading: false });

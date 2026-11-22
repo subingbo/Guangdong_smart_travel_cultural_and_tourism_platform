@@ -209,3 +209,15 @@
   padding: 16rpx;
   border-radius: 16rpx;
 }
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48rpx 0;
+}
+
+.loading-text {
+  font-size: 26rpx;
+  color: #999;
+}

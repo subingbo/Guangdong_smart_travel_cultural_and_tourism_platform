@@ -11,6 +11,45 @@ import (
 // MySQL returns JSON columns as []byte; these wrappers decode them into typed
 // slices (and re-encode on write), playing the role of MyBatis TypeHandlers.
 
+// JSONText is a nullable JSON column. json.RawMessage does not implement
+// sql.Scanner, so scanning a NULL JSON column into it fails at runtime.
+type JSONText []byte
+
+func (j *JSONText) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	switch v := value.(type) {
+	case []byte:
+		*j = append((*j)[:0], v...)
+	case string:
+		*j = append((*j)[:0], v...)
+	default:
+		return fmt.Errorf("JSONText: unsupported type %T", value)
+	}
+	return nil
+}
+
+func (j JSONText) Value() (driver.Value, error) {
+	if len(j) == 0 {
+		return nil, nil
+	}
+	return []byte(j), nil
+}
+
+func (j JSONText) MarshalJSON() ([]byte, error) {
+	if len(j) == 0 {
+		return []byte("null"), nil
+	}
+	return j, nil
+}
+
+func (j *JSONText) UnmarshalJSON(data []byte) error {
+	*j = append((*j)[:0], data...)
+	return nil
+}
+
 type StringList []string
 
 func (s *StringList) Scan(value interface{}) error {

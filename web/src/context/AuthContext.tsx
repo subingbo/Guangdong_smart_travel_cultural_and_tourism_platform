@@ -8,12 +8,16 @@ interface AuthState {
   signUp: (username: string, password: string, nickname?: string) => Promise<void>;
   signOut: () => void;
   refresh: () => Promise<void>;
+  authOpen: boolean;
+  openAuth: () => void;
+  closeAuth: () => void;
 }
 
 const AuthContext = createContext<AuthState>(null as unknown as AuthState);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
   const { i18n } = useTranslation();
 
   const refresh = useCallback(async () => {
@@ -54,7 +58,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, refresh }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        signIn,
+        signUp,
+        signOut,
+        refresh,
+        authOpen,
+        openAuth: () => setAuthOpen(true),
+        closeAuth: () => setAuthOpen(false),
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

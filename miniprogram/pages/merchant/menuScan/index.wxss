@@ -467,6 +467,33 @@ page {
   transform: scale(0.95);
 }
 
+.translation-item {
+  width: 100%;
+  background: #f7f9fc;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  box-sizing: border-box;
+}
+
+.translation-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1a2233;
+}
+
+.translation-result {
+  margin-top: 6rpx;
+  font-size: 30rpx;
+  color: #0052d9;
+}
+
+.translation-notes {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
 .loading-container {
   display: flex;
   flex-direction: column;

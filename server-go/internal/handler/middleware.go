@@ -7,9 +7,10 @@ import (
 
 	"github.com/travelgd/server-go/internal/auth"
 	"github.com/travelgd/server-go/internal/common"
+	"github.com/travelgd/server-go/internal/repo"
 )
 
-/** Middleware that requires a valid bearer token and stores the user id in the context. */
+// RequireAuth rejects requests without a valid bearer token.
 func RequireAuth(jwt *auth.JwtService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, err := requireUserID(c, jwt)
@@ -23,7 +24,7 @@ func RequireAuth(jwt *auth.JwtService) gin.HandlerFunc {
 	}
 }
 
-/** Sets userID in the context when a valid token is present; never aborts. */
+// OptionalAuth sets userID when a token is present but never aborts.
 func OptionalAuth(jwt *auth.JwtService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if id, err := requireUserID(c, jwt); err == nil {
@@ -45,7 +46,7 @@ func requireUserID(c *gin.Context, jwt *auth.JwtService) (int64, error) {
 	return id, nil
 }
 
-/** userID returns the authenticated user id, or 0 for anonymous requests. */
+// userID returns the authenticated user id, or 0 for anonymous requests.
 func userID(c *gin.Context) int64 {
 	if v, ok := c.Get("userID"); ok {
 		if id, ok := v.(int64); ok {
@@ -55,7 +56,7 @@ func userID(c *gin.Context) int64 {
 	return 0
 }
 
-/** userIDRequired is like userID but fails the request with 401 when absent. */
+// userIDRequired is userID plus a 401 response when the user is anonymous.
 func userIDRequired(c *gin.Context) (int64, bool) {
 	id := userID(c)
 	if id == 0 {
@@ -63,4 +64,39 @@ func userIDRequired(c *gin.Context) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// RequireRole checks the current user's role against the database on every
+// request, so a demoted user cannot keep admin access with an old JWT.
+func RequireRole(users *repo.UserRepo, roles ...string) gin.HandlerFunc {
+	allowed := make(map[string]bool, len(roles))
+	for _, role := range roles {
+		allowed[role] = true
+	}
+	return func(c *gin.Context) {
+		id := userID(c)
+		if id == 0 {
+			common.Fail(c, common.Unauthorized("Missing bearer token"))
+			c.Abort()
+			return
+		}
+		user, err := users.FindByID(c.Request.Context(), id)
+		if err != nil {
+			common.Fail(c, err)
+			c.Abort()
+			return
+		}
+		if user == nil {
+			common.Fail(c, common.Unauthorized("User no longer exists"))
+			c.Abort()
+			return
+		}
+		if !allowed[user.Role] {
+			common.Fail(c, common.Forbidden("Insufficient permissions"))
+			c.Abort()
+			return
+		}
+		c.Set("role", user.Role)
+		c.Next()
+	}
 }

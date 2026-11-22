@@ -1,4 +1,7 @@
 import { getLanguage, getTranslations } from '../../../utils/i18n';
+import { aiCopy, createPoster, getPosterTask } from '../../../services/api';
+import { getToken } from '../../../utils/auth';
+import { gotoLogin } from '../../../utils/request';
 
 Page({
   data: {
@@ -55,38 +58,43 @@ Page({
     this.setData({ posterStyle: e.detail.value })
   },
 
+  requireLogin(): boolean {
+    if (getToken()) return true;
+    wx.showModal({
+      title: '需要登录',
+      content: 'AI 文案与海报生成需要先登录，是否前往登录页？',
+      confirmText: '去登录',
+      success: (res) => {
+        if (res.confirm) gotoLogin();
+      }
+    });
+    return false;
+  },
+
   async onGenerate() {
     if (!this.data.inputText) {
       wx.showToast({ title: this.data.t.generate.pleaseEnter, icon: 'none' })
       return
     }
+    if (!this.requireLogin()) return
 
     this.setData({ loading: true, results: null })
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'generate_copy',
-          payload: {
-            text: this.data.inputText,
-            languages: this.data.languages,
-            style: this.data.tone
-          }
-        }
-      })
-      
-      const result = res.result as any;
-      if (result.success && result.data) {
-        this.setData({ results: result.data });
-      } else {
-        wx.showToast({ title: this.data.t.generate.generationFailed, icon: 'none' });
-        console.error('Copy Error:', result);
+      // Backend tone vocabulary: friendly | literary | promotional.
+      const toneMap: Record<string, string> = {
+        instagram: 'promotional',
+        twitter: 'friendly',
+        facebook: 'literary'
+      };
+      const results: Record<string, string> = {};
+      for (const lang of this.data.languages) {
+        const resp = await aiCopy(this.data.inputText, 'general', toneMap[this.data.tone] || 'friendly', lang);
+        results[lang] = resp.content;
       }
-      
+      this.setData({ results });
     } catch (error) {
       console.error(error)
-      wx.showToast({ title: this.data.t.generate.generationFailed, icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -98,68 +106,41 @@ Page({
        wx.showToast({ title: this.data.t.generate.enterTextFirst, icon: 'none' });
        return;
     }
-    
+    if (!this.requireLogin()) return;
+
     this.setData({ posterLoading: true, posterUrl: '' });
-    
+
     // Use custom prompt if available, otherwise construct one
     let posterPrompt = this.data.customPosterPrompt;
     if (!posterPrompt) {
-        posterPrompt = `${this.data.inputText}, ${this.data.tone} style, high quality, promotional poster`;
+        posterPrompt = `${this.data.inputText}, promotional poster, high quality`;
         // Update the custom prompt field so user sees what was used and can edit it
         this.setData({ customPosterPrompt: posterPrompt });
     }
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'generate_poster',
-          payload: {
-            prompt: posterPrompt,
-            style: this.data.posterStyle
-          }
-        }
-      });
-
-      const result = res.result as any;
-      if (result.success && result.taskId) {
-        await this.pollPosterTask(result.taskId, posterPrompt, this.data.posterStyle);
-      } else {
-        wx.showToast({ title: 'Poster generation failed', icon: 'none' });
-        console.error('Poster Error:', result);
-      }
+      const created = await createPoster(posterPrompt, this.data.posterStyle, getLanguage());
+      await this.pollPosterTask(created.taskId);
     } catch (error) {
       console.error(error);
-      wx.showToast({ title: 'Network error', icon: 'none' });
     } finally {
       this.setData({ posterLoading: false });
     }
   },
-  async pollPosterTask(taskId: string, prompt: string, style: string) {
+  async pollPosterTask(taskId: string) {
     const maxAttempts = 12;
     const interval = 3000;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'get_poster_task',
-          payload: {
-            taskId,
-            prompt,
-            style
-          }
-        }
-      });
-      const result = res.result as any;
-      if (result.success && result.imageUrl) {
-        this.setData({ posterUrl: result.imageUrl });
-        // Don't auto-preview, just show in card as requested
-        // wx.previewImage({ ... }); 
+      const task = await getPosterTask(taskId);
+      if (task.status === 'succeeded' && task.imageUrl) {
+        this.setData({ posterUrl: task.imageUrl });
+        // Show the poster in the card; the user opens the preview explicitly.
         return;
       }
-      if (!result.success || !result.pending) {
-        throw new Error(result.message || 'Poster generation failed');
+      if (task.status === 'failed') {
+        wx.showToast({ title: task.message || 'Poster generation failed', icon: 'none' });
+        return;
       }
       await this.sleep(interval);
     }

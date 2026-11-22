@@ -1,5 +1,5 @@
-// Package ai holds the external providers: DashScope (Qwen) and Tencent Maps.
-// Both mirror server-java's service/ai package one-to-one.
+// Package ai holds the external providers: DashScope (Qwen), AMap, Tencent
+// Maps and the shared travel-cost estimator.
 package ai
 
 import (
@@ -17,25 +17,38 @@ import (
 type QwenClient struct {
 	apiKey  string
 	chatURL string
+	model   string
 	client  *http.Client
 }
 
-func NewQwenClient(apiKey, chatURL string) *QwenClient {
+func NewQwenClient(apiKey, chatURL, model string) *QwenClient {
+	if model == "" {
+		model = "qwen-plus"
+	}
 	return &QwenClient{
 		apiKey:  apiKey,
 		chatURL: chatURL,
+		model:   model,
 		client:  &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
 func (q *QwenClient) Enabled() bool { return q.apiKey != "" }
 
+// Model returns the configured model name (qwen-plus unless overridden).
+func (q *QwenClient) Model() string { return q.model }
+
 type QwenMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-/** Sends a chat completion request and returns the assistant message text. */
+// ChatDefault sends a completion using the client's default model.
+func (q *QwenClient) ChatDefault(ctx context.Context, messages []QwenMessage) (string, error) {
+	return q.Chat(ctx, q.model, messages)
+}
+
+// Chat sends a completion and returns the assistant message text.
 func (q *QwenClient) Chat(ctx context.Context, model string, messages []QwenMessage) (string, error) {
 	if !q.Enabled() {
 		return "", common.BadGateway("AI provider not configured (DASHSCOPE_API_KEY missing)")
@@ -75,7 +88,7 @@ func (q *QwenClient) Chat(ctx context.Context, model string, messages []QwenMess
 	return out.Output.Choices[0].Message.Content, nil
 }
 
-/** Strips ```json fences the model sometimes adds. */
+// StripFences removes the ```json fences the model occasionally adds.
 func StripFences(text string) string {
 	t := strings.ReplaceAll(text, "```json", "")
 	return strings.TrimSpace(strings.ReplaceAll(t, "```", ""))

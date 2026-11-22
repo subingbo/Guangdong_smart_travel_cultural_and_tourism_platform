@@ -13,10 +13,9 @@ import (
 	"github.com/travelgd/server-go/internal/model"
 )
 
-/**
- * Optional Tencent Maps route planner. When the key is absent the caller
- * falls back to straight lines between waypoints, matching the cloud function.
- */
+// TencentRouteClient is the optional Tencent Maps planner. Without a key the
+// caller falls back to straight lines between waypoints, same as the
+// mini-program cloud function.
 type TencentRouteClient struct {
 	apiKey string
 	apiURL string
@@ -32,10 +31,6 @@ func NewTencentRouteClient(apiKey, apiURL string) *TencentRouteClient {
 }
 
 func (t *TencentRouteClient) Enabled() bool { return t.apiKey != "" }
-
-type RouteResult struct {
-	Points []model.Coordinate
-}
 
 func (t *TencentRouteClient) FetchPolyline(ctx context.Context, waypoints []model.Waypoint, mode string) *RouteResult {
 	if !t.Enabled() || len(waypoints) < 2 {
@@ -93,7 +88,8 @@ func (t *TencentRouteClient) FetchPolyline(ctx context.Context, waypoints []mode
 	return &RouteResult{Points: decodePolyline(polyline)}
 }
 
-/** Decodes the compressed polyline format (first point absolute, rest deltas * 1e6). */
+// decodePolyline expands Tencent's delta-encoded polyline. The first point is
+// absolute; every later point is a delta scaled by 1e6.
 func decodePolyline(pl []float64) []model.Coordinate {
 	if len(pl) < 2 {
 		return nil

@@ -14,27 +14,20 @@
   <view class="card">
     <view class="label">{{t.generate.targetLang}}</view>
     <view class="tags-container">
-      <t-tag 
-        variant="light" 
-        size="large" 
-        class="tag-item {{tools.includes(languages, 'en') ? 'active-tag' : ''}}" 
-        bind:click="onLanguageChange" 
+      <t-tag
+        variant="light"
+        size="large"
+        class="tag-item {{tools.includes(languages, 'zh') ? 'active-tag' : ''}}"
+        bind:click="onLanguageChange"
+        data-value="zh"
+      >中文</t-tag>
+      <t-tag
+        variant="light"
+        size="large"
+        class="tag-item {{tools.includes(languages, 'en') ? 'active-tag' : ''}}"
+        bind:click="onLanguageChange"
         data-value="en"
-      >{{t.common.english}}</t-tag>
-      <t-tag 
-        variant="light" 
-        size="large" 
-        class="tag-item {{tools.includes(languages, 'ja') ? 'active-tag' : ''}}" 
-        bind:click="onLanguageChange" 
-        data-value="ja"
-      >{{t.common.japanese}}</t-tag>
-      <t-tag 
-        variant="light" 
-        size="large" 
-        class="tag-item {{tools.includes(languages, 'ko') ? 'active-tag' : ''}}" 
-        bind:click="onLanguageChange" 
-        data-value="ko"
-      >{{t.common.korean}}</t-tag>
+      >English</t-tag>
     </view>
   </view>
 
@@ -58,7 +51,7 @@
     
     <block wx:for="{{languages}}" wx:key="*this">
       <view class="result-card">
-        <view class="lang-badge">{{item === 'en' ? 'English' : (item === 'ja' ? 'Japanese' : 'Korean')}}</view>
+        <view class="lang-badge">{{item === 'en' ? 'English' : '中文'}}</view>
         <text user-select class="result-text">{{results[item]}}</text>
       </view>
     </block>

@@ -8,18 +8,6 @@
   <view class="camera-container">
     <camera wx:if="{{!imageUrl}}" mode="normal" device-position="back" flash="off" binderror="onCameraError" class="camera-preview" />
     <image wx:else src="{{translatedImageUrl || imageUrl}}" mode="aspectFit" class="camera-img" />
-    
-    <!-- OCR Overlays -->
-    <block wx:if="{{imageUrl && !translatedImageUrl && !showWordCloud && !showCultureCard && ocrItems.length > 0}}">
-      <view 
-        wx:for="{{ocrItems}}" 
-        wx:key="index"
-        class="ocr-box"
-        style="{{item.style}}"
-        data-text="{{item.text}}"
-        bindtap="onTapOCRBox"
-      ></view>
-    </block>
 
     <view class="scan-frame" wx:if="{{!imageUrl}}">
        <view class="corner top-left"></view>
@@ -57,7 +45,7 @@
                    <view class="cc-label">Description</view>
                    <view class="cc-text">{{cultureCard.description}}</view>
                 </view>
-                <view class="cc-section">
+                <view class="cc-section" wx:if="{{cultureCard.cultural_significance}}">
                    <view class="cc-label">Cultural Significance</view>
                    <view class="cc-text">{{cultureCard.cultural_significance}}</view>
                 </view>
@@ -104,7 +92,7 @@
     </view>
 
     <view class="drawer-header">
-      <text class="drawer-title">Found Cultural Items</text>
+      <text class="drawer-title">{{translations.length > 0 ? 'Translation' : 'Found Cultural Items'}}</text>
       <t-icon name="close" size="40rpx" color="#999" bindtap="onCloseWordCloud" />
     </view>
 
@@ -114,14 +102,25 @@
         <text class="loading-text">{{analysisStep}}</text>
       </view>
 
+      <view class="keywords-list" wx:elif="{{translations.length > 0}}">
+        <view wx:for="{{translations}}" wx:key="name" class="translation-item">
+          <view class="translation-name">{{item.name}}</view>
+          <view class="translation-result">{{item.translation}}</view>
+          <view class="translation-notes" wx:if="{{item.notes}}">{{item.notes}}</view>
+        </view>
+      </view>
+
       <view class="keywords-list" wx:else>
         <view wx:for="{{keywords}}" wx:key="word" 
               class="keyword-chip" 
               style="border-color: {{item.color}}; color: {{item.color}}; background-color: {{item.color}}1A;"
               bindtap="onKeywordTap" 
-              data-keyword="{{item.word}}">
+              bindlongpress="onTapOCRBox"
+              data-keyword="{{item.word}}"
+              data-text="{{item.word}}">
           {{item.word}}
         </view>
+        <view wx:if="{{keywords.length === 0}}" class="loading-text">未识别到菜品，请换一张清晰的菜单图片</view>
       </view>
     </scroll-view>
   </view>

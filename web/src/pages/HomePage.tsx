@@ -1,27 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Carousel, Spin } from 'antd';
+import { Carousel, Spin, Tag } from 'antd';
 import {
   NodeIndexOutlined,
-  FileTextOutlined,
   CustomerServiceOutlined,
   ReadOutlined,
+  ShoppingOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
-import { api, ScenicImage } from '../api/client';
+import { Activity, api, Page, ScenicImage } from '../api/client';
+import SafeImage from '../components/SafeImage';
 
 export default function HomePage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [scenics, setScenics] = useState<ScenicImage[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
       .get<ScenicImage[]>('/api/scenics')
-      .then(setScenics)
+      .then((data) => setScenics(data || []))
       .catch(() => setScenics([]))
       .finally(() => setLoading(false));
+    api
+      .get<Page<Activity>>('/api/activities?status=upcoming&page=1&pageSize=3')
+      .then((data) => setActivities(data.items || []))
+      .catch(() => setActivities([]));
   }, []);
 
   const lang = i18n.language === 'zh' ? 'Cn' : 'En';
@@ -32,8 +39,12 @@ export default function HomePage() {
     { icon: <NodeIndexOutlined />, label: t('home.routes'), path: '/route' },
     { icon: <ReadOutlined />, label: t('home.travelBlog'), path: '/blog' },
     { icon: <CustomerServiceOutlined />, label: t('home.aiGuide'), path: '/guide' },
-    { icon: <FileTextOutlined />, label: t('blog.title'), path: '/blog' },
+    { icon: <ShoppingOutlined />, label: t('tab.shop'), path: '/shop' },
   ];
+
+  // Rotate the picks by day instead of shuffling randomly (stable, reproducible UI).
+  const offset = scenics.length > 0 ? new Date().getDate() % scenics.length : 0;
+  const picks = [...scenics.slice(offset), ...scenics.slice(0, offset)].slice(0, 6);
 
   return (
     <div>
@@ -47,10 +58,15 @@ export default function HomePage() {
           <Spin />
         </div>
       ) : (
-        <Carousel autoplay dots>
+        <Carousel
+          autoplay
+          dots
+          slidesToShow={3}
+          responsive={[{ breakpoint: 900, settings: { slidesToShow: 1 } }]}
+        >
           {scenics.map((s) => (
             <div key={s.id} className="scenic-card">
-              <img src={s.imageUrl} alt={titleOf(s)} />
+              <SafeImage src={s.imageUrl} alt={titleOf(s)} />
               <div style={{ padding: '10px 4px' }}>
                 <b>{titleOf(s)}</b>
                 <div style={{ fontSize: 12, color: '#777' }}>{descOf(s)}</div>
@@ -62,7 +78,7 @@ export default function HomePage() {
 
       <div className="quick-grid">
         {quickEntries.map((e, i) => (
-          <button key={i} className="quick-item" onClick={() => navigate(e.path)}>
+          <button key={i} type="button" className="quick-item" onClick={() => navigate(e.path)}>
             {e.icon}
             <span>{e.label}</span>
           </button>
@@ -70,20 +86,47 @@ export default function HomePage() {
       </div>
 
       <div className="section-title">{t('home.todaysPick')}</div>
-      {scenics.length > 0 &&
-        scenics
-          .slice()
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 2)
-          .map((s) => (
-            <div key={s.id} className="scenic-card" style={{ marginBottom: 14 }}>
-              <img src={s.imageUrl} alt={titleOf(s)} />
-              <div style={{ padding: '8px 4px' }}>
-                <b>{titleOf(s)}</b>
-                <div style={{ fontSize: 12, color: '#777' }}>{descOf(s)}</div>
-              </div>
+      <div className="card-grid">
+        {picks.map((s) => (
+          <article key={s.id} className="pick-card">
+            <SafeImage src={s.imageUrl} alt={titleOf(s)} />
+            <div className="pick-body">
+              <b>{titleOf(s)}</b>
+              <div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>{descOf(s)}</div>
             </div>
-          ))}
+          </article>
+        ))}
+      </div>
+
+      {activities.length > 0 && (
+        <>
+          <div className="section-title home-section-title">
+            <span>{t('home.activities')}</span>
+            <button type="button" className="home-view-all" onClick={() => navigate('/activities')}>
+              {t('home.viewAll')} →
+            </button>
+          </div>
+          <div className="home-activity-grid">
+            {activities.map((a) => (
+              <article key={a.id} className="home-activity-card" onClick={() => navigate('/activities')}>
+                <SafeImage
+                  src={a.imageUrl}
+                  alt={lang === 'Cn' ? a.titleCn : a.titleEn}
+                />
+                <div className="home-activity-body">
+                  <Tag color="blue">{a.tag}</Tag>
+                  <b>{lang === 'Cn' ? a.titleCn : a.titleEn}</b>
+                  <span>
+                    <CalendarOutlined /> {new Date(a.startAt).toLocaleDateString(lang === 'Cn' ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
+                    {' · '}
+                    {a.location}
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

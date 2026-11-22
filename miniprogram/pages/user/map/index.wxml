@@ -18,7 +18,7 @@
     </view>
     <view class="title-card">
       <view class="title">{{routeData.routeName || t.map.title}}</view>
-      <view class="subtitle">{{routeData.duration || t.map.subtitle}}</view>
+      <view class="subtitle">{{routeData.durationDays ? routeData.durationDays + ' days' : ''}} {{routeData.totalDistance || ''}}</view>
     </view>
     <view class="share-btn">
       <t-icon name="share" size="48rpx" />
@@ -46,14 +46,14 @@
             </view>
             <view class="timeline-content">
               <view class="timeline-title">{{item.name}}</view>
-              <view class="timeline-time">Day {{item.day}} • {{item.stayTime}}</view>
+              <view class="timeline-time">{{item.stayTime}}</view>
               <view class="timeline-desc">{{item.description}}</view>
             </view>
           </view>
         </block>
         
         <view wx:if="{{!routeData}}" class="loading-state">
-          <t-loading theme="spinner" size="40rpx" text="Loading route..." />
+          <view class="loading-text">Loading route...</view>
         </view>
       </view>
     </scroll-view>
