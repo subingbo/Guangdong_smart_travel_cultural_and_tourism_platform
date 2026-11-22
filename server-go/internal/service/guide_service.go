@@ -11,7 +11,8 @@ import (
 	"github.com/travelgd/server-go/internal/repo"
 )
 
-/** AI tour guide with a lightweight RAG: knowledge hits join the system prompt. */
+// GuideService is the legacy /guide/chat path: a keyword knowledge search whose
+// hits are appended to the system prompt.
 type GuideService struct {
 	sessions  *repo.GuideRepo
 	knowledge *repo.KnowledgeRepo
@@ -36,11 +37,7 @@ func (s *GuideService) Chat(ctx context.Context, userID int64, req GuideChatRequ
 	var session *model.GuideSession
 	var err error
 	if req.SessionID == 0 {
-		title := req.Question
-		if len(title) > 60 {
-			title = title[:60]
-		}
-		session = &model.GuideSession{UserID: userID, Title: title}
+		session = &model.GuideSession{UserID: userID, Title: truncateRunes(req.Question, 60)}
 		if err := s.sessions.InsertSession(ctx, session); err != nil {
 			return nil, err
 		}
@@ -60,7 +57,7 @@ func (s *GuideService) Chat(ctx context.Context, userID int64, req GuideChatRequ
 	}
 
 	systemPrompt := s.buildSystemPrompt(ctx, req.Question)
-	history, err := s.sessions.FindMessages(ctx, session.ID)
+	history, err := s.sessions.FindRecentMessages(ctx, session.ID, 20)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +74,9 @@ func (s *GuideService) Chat(ctx context.Context, userID int64, req GuideChatRequ
 	if err := s.sessions.InsertMessage(ctx, botMsg); err != nil {
 		return nil, err
 	}
+	if err := s.sessions.TouchSession(ctx, session.ID); err != nil {
+		return nil, err
+	}
 	return &GuideChatResponse{SessionID: session.ID, Reply: reply}, nil
 }
 
@@ -85,10 +85,7 @@ func (s *GuideService) buildSystemPrompt(ctx context.Context, question string) s
 	sb.WriteString("You are a knowledgeable AI tour guide for Guangdong / Lingnan culture. " +
 		"Answer the user's question about travel, history, or culture. " +
 		"Keep answers concise (under 100 words) and engaging.")
-	keyword := question
-	if len(keyword) > 60 {
-		keyword = keyword[:60]
-	}
+	keyword := truncateRunes(question, 60)
 	hits, err := s.knowledge.SearchByKeyword(ctx, keyword, 3)
 	if err == nil && len(hits) > 0 {
 		sb.WriteString(" Relevant cultural background:")
@@ -97,6 +94,17 @@ func (s *GuideService) buildSystemPrompt(ctx context.Context, question string) s
 		}
 	}
 	return sb.String()
+}
+
+func truncateRunes(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n])
 }
 
 func (s *GuideService) GetSession(ctx context.Context, userID, id int64) (*model.GuideSession, error) {

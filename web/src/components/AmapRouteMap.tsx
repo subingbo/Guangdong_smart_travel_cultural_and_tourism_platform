@@ -14,7 +14,7 @@ declare global {
 
 let amapPromise: Promise<any> | null = null;
 
-/** Loads the AMap JS API once and reuses the promise across mounts. */
+// Loads the AMap JS API once and reuses the promise across mounts.
 function loadAMap(): Promise<any> {
   if (!amapPromise) {
     if (AMAP_SECURITY_CODE) {
@@ -35,10 +35,8 @@ interface Props {
   language: string;
 }
 
-/**
- * AMap (Gaode) route map. All coordinates are GCJ-02, which is exactly what
- * the seeded places and the AMap driving API return, so no conversion is needed.
- */
+// AMap (Gaode) route map. All coordinates are GCJ-02, which is what the seeded
+// places and the AMap driving API return, so no conversion is needed.
 export default function AmapRouteMap({ polyline, waypoints, language }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);

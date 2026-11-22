@@ -2,6 +2,7 @@
   "pages": [
     "pages/index/index",
     "pages/shop/index",
+    "pages/user/login/index",
     "pages/user/routeInput/index",
     "pages/user/travelBlog/index",
     "pages/user/guide/index",

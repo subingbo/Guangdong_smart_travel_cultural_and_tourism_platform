@@ -12,7 +12,7 @@
       <view class="user-text">
         <view class="username">{{userInfo.nickName}}</view>
         <view class="user-tag">{{userTag === 'Member' ? t.profile.member : (userTag === 'Visitor' ? t.profile.visitor : t.profile.guest)}}</view>
-        <t-button wx:if="{{!isLoggedIn}}" class="login-btn" theme="light" size="small" loading="{{loading}}" bindtap="onRegister">{{t.profile.login}}</t-button>
+        <t-button wx:if="{{!isLoggedIn}}" class="login-btn" theme="light" size="small" loading="{{loading}}" bindtap="goLogin">{{t.profile.login}}</t-button>
       </view>
     </view>
     <t-icon name="setting" size="48rpx" color="#fff" />
@@ -28,6 +28,30 @@
     </t-grid>
   </view>
 
+  <!-- My Favorites -->
+  <view class="section" wx:if="{{isLoggedIn}}">
+    <view class="section-title">{{t.profile.favorites}}</view>
+    <view wx:if="{{favorites.length === 0}}" class="section-empty">还没有收藏的景点</view>
+    <view wx:else class="fav-list">
+      <view class="fav-item" wx:for="{{favorites}}" wx:key="id">
+        <view class="fav-name">{{item.name}}</view>
+        <view class="fav-desc">{{item.desc}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- My Blogs -->
+  <view class="section" wx:if="{{isLoggedIn}}">
+    <view class="section-title">{{t.profile.posts}}</view>
+    <view wx:if="{{blogs.length === 0}}" class="section-empty">还没有发布游记</view>
+    <view wx:else class="blog-list">
+      <view class="blog-item" wx:for="{{blogs}}" wx:key="id">
+        <view class="blog-item-title">{{item.title}}</view>
+        <view class="blog-item-meta">{{item.createdAt}} · ♥ {{item.likes}}</view>
+      </view>
+    </view>
+  </view>
+
   <!-- Menu List -->
   <view class="section">
     <t-cell-group theme="card">
@@ -39,22 +63,6 @@
   </view>
 
   <view class="section">
-    <view class="section-title">{{t.profile.posterHistory}}</view>
-    <view wx:if="{{!isLoggedIn}}" class="section-empty">{{t.profile.loginView}}</view>
-    <view wx:elif="{{posterLoading}}" class="section-empty">{{t.common.loading}}</view>
-    <view wx:elif="{{posterHistory.length === 0}}" class="section-empty">{{t.profile.emptyHistory}}</view>
-    <view wx:else class="poster-list">
-      <view class="poster-item" wx:for="{{posterHistory}}" wx:key="id" data-url="{{item.imageUrl}}" bindtap="onPreviewPosterHistory">
-        <t-image src="{{item.imageUrl}}" mode="aspectFill" class="poster-image" />
-        <view class="poster-meta">
-          <view class="poster-prompt">{{item.prompt}}</view>
-          <view class="poster-time">{{item.displayTime}}</view>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <view class="section">
     <t-cell-group theme="card">
       <t-cell title="{{t.profile.help}}" left-icon="help-circle" hover arrow bind:click="onTapHelp" />
       <t-cell title="{{t.profile.about}}" left-icon="info-circle" hover arrow bind:click="onTapAbout" />
@@ -63,10 +71,6 @@
 
   <view class="footer-btn">
     <t-button theme="light" block size="large" bind:tap="onLogout" wx:if="{{isLoggedIn}}">{{t.profile.logout}}</t-button>
-    <t-button theme="primary" block size="large" bind:tap="onRegister" wx:else loading="{{loading}}">{{t.profile.login}}</t-button>
-    <view style="margin-top: 24rpx;">
-      <t-button theme="default" variant="text" size="small" bind:tap="onInitDB">{{t.profile.initDb}}</t-button>
-      <t-button theme="default" variant="text" size="small" bind:tap="onSeedData">{{t.profile.seedData}}</t-button>
-    </view>
+    <t-button theme="primary" block size="large" bind:tap="goLogin" wx:else loading="{{loading}}">{{t.profile.login}}</t-button>
   </view>
 </view>

@@ -20,13 +20,24 @@ PAYLOAD_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 : "${AI_MODEL:=qwen-plus}"
 : "${AMAP_WEB_KEY:=}"
 : "${AMAP_ROUTE_URL:=https://restapi.amap.com/v3/direction}"
+: "${AMAP_WEATHER_URL:=https://restapi.amap.com/v3/weather/weatherInfo}"
 : "${AMAP_TRANSIT_CITY:=广州}"
+# Agent defaults are sized for the 2C1G host. Raise them only after checking
+# the LLM quota, AMap quota and DB_MAX_OPEN_CONNS.
+: "${AI_BASE_URL:=https://dashscope.aliyuncs.com/compatible-mode/v1}"
+: "${AGENT_ENABLED:=true}"
+: "${AGENT_EXECUTOR_MODE:=spawn}"
+: "${AGENT_MAX_CONCURRENT_RUNS:=4}"
+: "${AGENT_QUEUE_CAPACITY:=16}"
+: "${AGENT_RUN_TIMEOUT_SECONDS:=300}"
+: "${AGENT_RATE_LIMIT_PER_MINUTE:=10}"
+: "${DB_MAX_OPEN_CONNS:=10}"
 
 echo "==> App user and directories"
 if ! id travelgd >/dev/null 2>&1; then
     sudo -n useradd --system --home-dir "$APP_DIR" --shell /usr/sbin/nologin travelgd
 fi
-sudo -n mkdir -p "$APP_DIR"/{bin,web,etc}
+sudo -n mkdir -p "$APP_DIR"/{bin,web,etc} "$APP_DIR/uploads/blogs" "$APP_DIR/uploads/avatars"
 sudo -n chown -R travelgd:travelgd "$APP_DIR"
 sudo -n chmod 755 "$APP_DIR"
 
@@ -75,12 +86,28 @@ JWT_EXPIRE_HOURS=72
 DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
 TENCENT_MAP_API_KEY=${TENCENT_MAP_API_KEY}
 AI_MODEL=${AI_MODEL}
+AI_BASE_URL=${AI_BASE_URL}
+AI_STREAM=true
 AMAP_WEB_KEY=${AMAP_WEB_KEY}
 AMAP_ROUTE_URL=${AMAP_ROUTE_URL}
+AMAP_WEATHER_URL=${AMAP_WEATHER_URL}
 AMAP_TRANSIT_CITY=${AMAP_TRANSIT_CITY}
+AGENT_ENABLED=${AGENT_ENABLED}
+AGENT_EXECUTOR_MODE=${AGENT_EXECUTOR_MODE}
+AGENT_MAX_CONCURRENT_RUNS=${AGENT_MAX_CONCURRENT_RUNS}
+AGENT_QUEUE_CAPACITY=${AGENT_QUEUE_CAPACITY}
+AGENT_QUEUE_TIMEOUT_SECONDS=30
+AGENT_RUN_TIMEOUT_SECONDS=${AGENT_RUN_TIMEOUT_SECONDS}
+AGENT_RATE_LIMIT_PER_MINUTE=${AGENT_RATE_LIMIT_PER_MINUTE}
+AGENT_MAP_CONCURRENCY=8
+AGENT_DEBUG=false
+DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS}
+DB_MAX_IDLE_CONNS=5
+DB_CONN_MAX_LIFETIME_MINUTES=30
 PORT=${BACKEND_PORT}
 HOST=127.0.0.1
 GIN_MODE=release
+UPLOAD_DIR=${APP_DIR}/uploads
 EOF
 sudo -n chown root:root "$APP_DIR/etc/app.env"
 sudo -n chmod 600 "$APP_DIR/etc/app.env"

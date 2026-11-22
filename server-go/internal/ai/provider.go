@@ -18,3 +18,10 @@ type RouteResult struct {
 	Points         []model.Coordinate
 	DistanceMeters int
 }
+
+// LegRoute is a single origin→destination travel leg.
+type LegRoute struct {
+	DurationMinutes int
+	DistanceMeters  int
+	Points          []model.Coordinate
+}

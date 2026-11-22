@@ -1,4 +1,8 @@
 import { getLanguage, getTranslations } from '../../../utils/i18n';
+import { dishExplain, menuOCR, menuTranslate } from '../../../services/api';
+import { getToken } from '../../../utils/auth';
+import { gotoLogin } from '../../../utils/request';
+import { readImageBase64 } from '../../../utils/upload';
 
 Page({
   data: {
@@ -23,12 +27,13 @@ Page({
     // New Data for Culture Card
     showWordCloud: false,
     keywords: [] as any[],
+    translations: [] as any[],
     cultureCard: null as any,
     showCultureCard: false,
     cardLoading: false,
     cardStreaming: false,
     cardStreamText: '',
-    uploadedFileID: '', // Cache fileID
+    imageDataB64: '', // Cache of the base64 payload sent to AI endpoints
     analyzing: false,
     analysisStep: '',
     
@@ -101,7 +106,8 @@ Page({
           cardStreamText: '',
           isDrawerOpen: false,
           drawerHeight: 0,
-          uploadedFileID: ''
+          imageDataB64: '',
+          translations: []
         });
       },
       fail: (e) => {
@@ -111,92 +117,60 @@ Page({
     });
   },
 
-  // Helper to ensure image is uploaded
-  async ensureImageUploaded(): Promise<string> {
-    if (this.data.uploadedFileID) return this.data.uploadedFileID;
+  // Helper to ensure the current image is available as a base64 payload.
+  async ensureImageBase64(): Promise<string> {
+    if (this.data.imageDataB64) return this.data.imageDataB64;
     if (!this.data.imageUrl) throw new Error('No image selected');
 
-    wx.showLoading({ title: 'Uploading...' });
-    const filePath = this.data.imageUrl;
-    const cloudPath = `menu_images/${Date.now()}-${Math.random().toString(36).slice(-6)}.jpg`;
-    
+    wx.showLoading({ title: 'Preparing...' });
     try {
-      const uploadRes = await wx.cloud.uploadFile({
-        cloudPath,
-        filePath
-      });
-      this.setData({ uploadedFileID: uploadRes.fileID });
-      return uploadRes.fileID;
-    } catch (e) {
-      console.error('Upload failed', e);
-      throw e;
+      const b64 = await readImageBase64(this.data.imageUrl);
+      this.setData({ imageDataB64: b64 });
+      return b64;
     } finally {
       wx.hideLoading();
     }
   },
 
-  async runOCR() {
-    // ... existing runOCR logic if needed ...
+  requireLogin(): boolean {
+    if (getToken()) return true;
+    wx.showModal({
+      title: '需要登录',
+      content: '菜单识别与翻译需要先登录，是否前往登录页？',
+      confirmText: '去登录',
+      success: (res) => {
+        if (res.confirm) gotoLogin();
+      }
+    });
+    return false;
   },
 
-  // New: Culture Card Flow
   async onCultureCard() {
     if (!this.data.imageUrl) {
       wx.showToast({ title: 'Please select an image first', icon: 'none' });
       return;
     }
+    if (!this.requireLogin()) return;
 
-    // wx.showLoading({ title: 'Analyzing Culture...' });
     this.setData({
         isDrawerOpen: true,
         drawerHeight: this.data.maxHeight * 0.5,
         analyzing: true,
         analysisStep: '正在识别文字...',
-        keywords: [] // Clear previous results
+        keywords: [],
+        translations: [] // Clear previous results
     });
 
     try {
-      const fileID = await this.ensureImageUploaded();
+      const image = await this.ensureImageBase64();
 
-      // 1. Run Qwen-OCR
-      const ocrRes = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'qwen_ocr',
-          payload: { fileID }
-        }
-      });
-      const ocrResult = ocrRes.result as any;
-      if (!ocrResult.success) throw new Error(ocrResult.message || 'OCR Failed');
-      const text = ocrResult.text;
+      // OCR the image through the local backend (qwen-vl).
+      const ocrResult = await menuOCR(image, getLanguage());
+      const text = ocrResult.text || '';
 
-      // 2. Extract Keywords
-      this.setData({ analysisStep: '正在提取文化关键词...' });
-      const keywordRes = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'extract_keywords',
-          payload: { text }
-        }
-      });
-      const keywordResult = keywordRes.result as any;
-      if (!keywordResult.success) throw new Error(keywordResult.message || 'Analysis Failed');
-
-      // Process keywords for display
-      let keywords = keywordResult.data.keywords.map((k: any) => ({
-        ...k,
-        color: this.getCategoryColor(k.category)
-      }));
-
-      // Sort: Cultural categories first
-      const culturalCategories = ['Food', 'Architecture', 'Custom'];
-      keywords.sort((a: any, b: any) => {
-        const aIsCultural = culturalCategories.includes(a.category);
-        const bIsCultural = culturalCategories.includes(b.category);
-        if (aIsCultural && !bIsCultural) return -1;
-        if (!aIsCultural && bIsCultural) return 1;
-        return 0;
-      });
+      // Derive tappable dish keywords from the OCR text client-side.
+      this.setData({ analysisStep: '正在提取菜品关键词...' });
+      const keywords = this.buildKeywordsFromOcr(text);
 
       this.setData({
         keywords,
@@ -207,14 +181,30 @@ Page({
     } catch (e: any) {
       console.error('Culture analysis failed', e);
       wx.showToast({ title: 'Analysis Failed', icon: 'none' });
-      this.setData({ 
-          analyzing: false, 
+      this.setData({
+          analyzing: false,
           analysisStep: '分析失败',
-          isDrawerOpen: false // Close drawer on error? Or keep open to show error? Closing for now.
+          isDrawerOpen: false
       });
-    } finally {
-      // wx.hideLoading();
     }
+  },
+
+  buildKeywordsFromOcr(text: string) {
+    const lines = text.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    const keywords: any[] = [];
+    for (const line of lines) {
+      // menuOCR lines look like "name | price"; keep the name part only.
+      const word = line.split('|')[0].trim();
+      if (!word || word.length > 20 || seen.has(word)) continue;
+      seen.add(word);
+      keywords.push({
+        word,
+        category: 'Food',
+        color: this.getCategoryColor('Food')
+      });
+    }
+    return keywords.slice(0, 12);
   },
 
   getCategoryColor(category: string) {
@@ -245,67 +235,31 @@ Page({
         cardHeight: 0 // Set to 0 for auto height
       });
 
-      const startRes = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'generate_culture_card',
-          payload: { keyword }
+      // The backend generates the whole card synchronously (qwen text model).
+      const card = await dishExplain(keyword, 'card', getLanguage());
+
+      this.setData({
+        cardLoading: false,
+        cultureCard: {
+          title: card.title || keyword,
+          description: card.content || '',
+          cultural_significance: '',
+          tags: card.tags || []
         }
       });
-      const startResult = startRes.result as any;
-      if (!startResult.success) throw new Error(startResult.message || 'Start Failed');
-      
-      // Stop loading spinner
-      this.setData({ cardLoading: false, cardStreaming: false });
-
-      const data = startResult.data;
-      if (data) {
-        this.setData({
-          cultureCard: data,
-          cardStreaming: false
-        });
-      } else {
-        this.setData({
-          cardStreaming: false
-        });
-      }
     } catch (e) {
       console.error('Card generation failed', e);
       wx.showToast({ title: 'Generation Failed', icon: 'none' });
       this.setData({ cardStreaming: false, cardLoading: false });
-    } finally {
     }
-  },
-
-  async pollCultureCardResult(taskId: string) {
-    const maxRetries = 30;
-    let retries = 0;
-    let interval = 1000;
-    while (retries < maxRetries) {
-      const pollRes = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'get_culture_card_result',
-          payload: { taskId }
-        }
-      });
-      const pollResult = pollRes.result as any;
-      if (pollResult && pollResult.status === 'SUCCEEDED' && pollResult.data) {
-        return pollResult.data;
-      }
-      if (pollResult && pollResult.status === 'FAILED') {
-        throw new Error(pollResult.message || 'Generation Failed');
-      }
-      await new Promise((resolve) => setTimeout(resolve, interval));
-      retries += 1;
-      if (retries === 10) interval = 2000;
-      if (retries === 20) interval = 3000;
-    }
-    throw new Error('Generation Timed Out');
   },
 
   onCloseCultureCard() {
     this.setData({ showCultureCard: false, cardStreaming: false, cardStreamText: '' });
+  },
+
+  onCloseWordCloud() {
+    this.setData({ isDrawerOpen: false, drawerHeight: 0 });
   },
 
   async playCultureCardStream(chunks: string[]) {
@@ -395,96 +349,30 @@ Page({
   },
 
   onDragEnd() {
-    // Optional: Snap to nearest anchor (min, mid, max)
-    // For now, leave as is or snap to min if too small
+    // Snap to the minimum height when the drawer is dragged close to it.
     if (this.data.drawerHeight < this.data.minHeight + 50) {
-       // Close or snap to min? Let's snap to min
        this.setData({ drawerHeight: this.data.minHeight });
     }
-  },
-
-  // ... (Existing OCR & Translate functions: updateOCRLayout, calculateOCRStyles, onTapOCRBox, onCloseExplanation, onResetCamera, onCameraError, onSaveImage, saveToAlbum, chooseImage, onTranslate, startTranslation)
-  
-  updateOCRLayout() {
-    const query = wx.createSelectorQuery();
-    query.select('.camera-container').boundingClientRect((rect) => {
-      if (rect && rect.width && rect.height) {
-        this.setData({
-          containerInfo: { width: rect.width, height: rect.height }
-        });
-        this.calculateOCRStyles();
-      }
-    }).exec();
-  },
-
-  calculateOCRStyles() {
-    const { rawOCRItems, imageInfo, containerInfo } = this.data;
-    if (!rawOCRItems.length || !imageInfo.width || !containerInfo.width) return;
-
-    const imgW = imageInfo.width;
-    const imgH = imageInfo.height;
-    const conW = containerInfo.width;
-    const conH = containerInfo.height;
-
-    // AspectFit logic
-    const scale = Math.min(conW / imgW, conH / imgH);
-    const displayW = imgW * scale;
-    const displayH = imgH * scale;
-    const offsetX = (conW - displayW) / 2;
-    const offsetY = (conH - displayH) / 2;
-
-    const ocrItems = rawOCRItems.map((item: any) => {
-      const box = item.box;
-      const x = box.left_top.x;
-      const y = box.left_top.y;
-      const w = box.right_top.x - box.left_top.x;
-      const h = box.left_bottom.y - box.left_top.y;
-
-      const style = `
-        left: ${x * scale + offsetX}px;
-        top: ${y * scale + offsetY}px;
-        width: ${w * scale}px;
-        height: ${h * scale}px;
-      `;
-
-      return { ...item, style };
-    });
-
-    this.setData({ ocrItems });
   },
 
   async onTapOCRBox(e: any) {
     const text = e.currentTarget.dataset.text;
     if (!text) return;
-    
-    this.setData({ 
+
+    this.setData({
       showExplanation: true,
       explanation: { title: 'Thinking...', content: 'Asking AI for cultural details...', tags: [] }
     });
-    
+
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'explain_menu_item',
-          payload: {
-            text,
-            language: getLanguage()
-          }
+      const explain = await dishExplain(text, 'explain', getLanguage());
+      this.setData({
+        explanation: {
+          title: explain.title || text,
+          content: explain.content || '',
+          tags: (explain.tags || []) as string[]
         }
       });
-      
-      const result = res.result as any;
-      if (result.success) {
-        const data = result.data;
-        this.setData({
-          explanation: {
-            title: data.title || text,
-            content: data.definition + (data.culture_note ? '\n\n' + data.culture_note : '') + (data.quote ? '\n\n"' + data.quote + '"' : ''),
-            tags: data.tags || []
-          }
-        });
-      }
     } catch (e) {
       console.error('Explanation failed', e);
       this.setData({
@@ -510,7 +398,8 @@ Page({
       cardStreamText: '',
       isDrawerOpen: false,
       drawerHeight: 0,
-      uploadedFileID: ''
+      imageDataB64: '',
+      translations: []
     });
   },
 
@@ -549,7 +438,7 @@ Page({
       wx.showToast({ title: 'Saved', icon: 'success' });
       
     } catch (e) {
-      console.log('Save cancelled or failed', e);
+      console.error('Save cancelled or failed', e);
     }
   },
 
@@ -623,7 +512,8 @@ Page({
         cardStreamText: '',
         isDrawerOpen: false,
         drawerHeight: 0,
-        uploadedFileID: ''
+        imageDataB64: '',
+        translations: []
       });
 
     } catch (e) {
@@ -637,16 +527,17 @@ Page({
       return;
     }
     if (this.data.translating) return;
+    if (!this.requireLogin()) return;
 
-    const langs = ['English', 'Chinese', 'Japanese', 'Korean', 'Spanish', 'French'];
+    const langs = ['English', '中文', 'Japanese', 'Korean', 'Spanish', 'French'];
     const langCodes = ['en', 'zh', 'ja', 'ko', 'es', 'fr'];
 
     try {
       const res = await wx.showActionSheet({ itemList: langs });
       const targetLang = langCodes[res.tapIndex];
       await this.startTranslation(targetLang);
-    } catch (e) {
-      console.log('Language selection cancelled');
+    } catch {
+      // The user dismissed the action sheet.
     }
   },
 
@@ -655,78 +546,27 @@ Page({
     wx.showLoading({ title: 'Translating...' });
 
     try {
-      const fileID = await this.ensureImageUploaded();
+      const image = await this.ensureImageBase64();
+      // The backend returns the translated dish list synchronously.
+      const result = await menuTranslate(image, targetLang);
+      const translations = (result.items || []).map((item: any) => ({
+        name: item.name,
+        translation: item.translation,
+        notes: item.notes || ''
+      }));
 
-      const callRes = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'translate_menu_image',
-          payload: {
-            fileID: fileID,
-            source_lang: 'auto',
-            target_lang: targetLang
-          }
-        }
+      this.setData({
+        translations,
+        keywords: [],
+        isDrawerOpen: true,
+        drawerHeight: this.data.maxHeight * 0.5,
+        analyzing: false,
+        analysisStep: ''
       });
 
-      const result = callRes.result as any;
-      if (!result.success) throw new Error(result.message || 'Failed to start translation');
-      const taskId = result.taskId;
-
-      const maxRetries = 30; 
-      let retries = 0;
-      let translatedUrl = '';
-      
-      const getInterval = (retryCount: number) => {
-        if (retryCount < 5) return 1000;
-        if (retryCount < 10) return 2000;
-        return 3000;
-      };
-
-      while (retries < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, getInterval(retries)));
-        
-        const pollRes = await wx.cloud.callFunction({
-          name: 'aiService',
-          data: {
-            action: 'get_translation_result',
-            payload: { taskId }
-          }
-        });
-
-        const pollResult = pollRes.result as any;
-        if (pollResult.success && pollResult.status === 'SUCCEEDED') {
-          translatedUrl = pollResult.imageUrl;
-          break;
-        } else if (pollResult.status === 'FAILED') {
-          throw new Error(pollResult.message || 'Translation failed');
-        }
-        retries++;
+      if (translations.length === 0) {
+        wx.showToast({ title: 'No dishes found', icon: 'none' });
       }
-
-      if (translatedUrl) {
-        this.setData({ translatedImageUrl: translatedUrl });
-        
-        // Show Preview
-        wx.previewImage({ urls: [translatedUrl] });
-
-        // ASK TO SAVE
-        const modalRes = await wx.showModal({
-            title: 'Translation Complete',
-            content: 'Do you want to save the translated image to your album?',
-            confirmText: 'Save',
-            cancelText: 'Cancel'
-        });
-
-        if (modalRes.confirm) {
-            await this.saveToAlbum(translatedUrl);
-            wx.showToast({ title: 'Saved', icon: 'success' });
-        }
-
-      } else {
-        throw new Error('Translation timed out');
-      }
-
     } catch (err: any) {
       console.error(err);
       this.setData({ error: err.message || 'Error occurred' });

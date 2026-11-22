@@ -66,6 +66,119 @@ func (a *AmapClient) FetchPolyline(ctx context.Context, waypoints []model.Waypoi
 	}
 }
 
+// LegRoute returns the duration, distance and geometry for one leg.
+// Unlike FetchPolyline it reports errors so the agent can fall back to a
+// clearly-marked estimate instead of silently pretending the route is real.
+func (a *AmapClient) LegRoute(ctx context.Context, mode string, from, to model.Coordinate) (*LegRoute, error) {
+	if !a.Enabled() {
+		return nil, fmt.Errorf("amap key is not configured")
+	}
+	params := url.Values{}
+	params.Set("key", a.apiKey)
+	params.Set("origin", fmt.Sprintf("%.6f,%.6f", from.Lng, from.Lat))
+	params.Set("destination", fmt.Sprintf("%.6f,%.6f", to.Lng, to.Lat))
+
+	switch mode {
+	case "bicycling":
+		var out amapBikeResp
+		if err := a.getJSON(ctx, a.bicyclingURL(), params, &out); err != nil {
+			return nil, err
+		}
+		if out.Errcode != 0 || len(out.Data.Paths) == 0 {
+			return nil, fmt.Errorf("amap bicycling error: errcode=%d errmsg=%s", out.Errcode, out.Errmsg)
+		}
+		p := out.Data.Paths[0]
+		return &LegRoute{
+			DurationMinutes: secondsToMinutes(p.Duration),
+			DistanceMeters:  amapDistance(p.Distance),
+			Points:          pathPoints(p),
+		}, nil
+	case "walking":
+		params.Set("extensions", "base")
+		var out amapWalkResp
+		if err := a.getJSON(ctx, a.apiURL+"/walking", params, &out); err != nil {
+			return nil, err
+		}
+		if out.Status != "1" || len(out.Route.Paths) == 0 {
+			return nil, fmt.Errorf("amap walking error: status=%s info=%s", out.Status, out.Info)
+		}
+		p := out.Route.Paths[0]
+		return &LegRoute{
+			DurationMinutes: secondsToMinutes(p.Duration),
+			DistanceMeters:  amapDistance(p.Distance),
+			Points:          pathPoints(p),
+		}, nil
+	case "transit":
+		params.Set("city", a.transitCity)
+		params.Set("extensions", "base")
+		var out amapTransitResp
+		if err := a.getJSON(ctx, a.apiURL+"/transit/integrated", params, &out); err != nil {
+			return nil, err
+		}
+		if out.Status != "1" || len(out.Route.Transits) == 0 {
+			return nil, fmt.Errorf("amap transit error: status=%s info=%s", out.Status, out.Info)
+		}
+		t := out.Route.Transits[0]
+		return &LegRoute{
+			DurationMinutes: secondsToMinutes(t.Duration),
+			DistanceMeters:  amapDistance(t.Distance),
+			Points:          transitPoints(t),
+		}, nil
+	default:
+		params.Set("extensions", "base")
+		var out amapDriveResp
+		if err := a.getJSON(ctx, a.apiURL+"/driving", params, &out); err != nil {
+			return nil, err
+		}
+		if out.Status != "1" || len(out.Route.Paths) == 0 {
+			return nil, fmt.Errorf("amap driving error: status=%s info=%s", out.Status, out.Info)
+		}
+		p := out.Route.Paths[0]
+		return &LegRoute{
+			DurationMinutes: secondsToMinutes(p.Duration),
+			DistanceMeters:  amapDistance(p.Distance),
+			Points:          pathPoints(p),
+		}, nil
+	}
+}
+
+func pathPoints(p amapPath) []model.Coordinate {
+	points := make([]model.Coordinate, 0, len(p.Steps)*4)
+	for _, st := range p.Steps {
+		points = append(points, parseAmapPolyline(st.Polyline)...)
+	}
+	return dedupeAdjacent(points)
+}
+
+func transitPoints(t amapTransit) []model.Coordinate {
+	var points []model.Coordinate
+	for _, seg := range t.Segments {
+		for _, st := range seg.Walking.Steps {
+			points = append(points, parseAmapPolyline(st.Polyline)...)
+		}
+		for _, line := range seg.Bus.Buslines {
+			points = append(points, parseAmapPolyline(line.Polyline)...)
+		}
+		if seg.Railway.Name != "" {
+			for _, st := range seg.Railway.Steps {
+				points = append(points, parseAmapPolyline(st.Polyline)...)
+			}
+		}
+	}
+	return dedupeAdjacent(points)
+}
+
+func secondsToMinutes(n json.Number) int {
+	if n == "" {
+		return 0
+	}
+	sec, err := strconv.ParseFloat(string(n), 64)
+	if err != nil || sec <= 0 {
+		return 0
+	}
+	return int((sec + 59) / 60)
+}
+
 func (a *AmapClient) fetchDriving(ctx context.Context, waypoints []model.Waypoint) *RouteResult {
 	var points []model.Coordinate
 	distance := 0
@@ -203,11 +316,18 @@ func (a *AmapClient) bicyclingURL() string {
 }
 
 func (a *AmapClient) getJSON(ctx context.Context, endpoint string, params url.Values, out interface{}) error {
+	return getJSON(ctx, a.client, endpoint, params, out)
+}
+
+// getJSON is the shared GET+decode helper for the AMap Web service clients.
+// The caller supplies the HTTP client so weather and routing can keep their
+// own timeouts.
+func getJSON(ctx context.Context, client *http.Client, endpoint string, params url.Values, out interface{}) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+params.Encode(), nil)
 	if err != nil {
 		return err
 	}
-	resp, err := a.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -295,6 +415,7 @@ type amapStep struct {
 
 type amapPath struct {
 	Distance json.Number `json:"distance"`
+	Duration json.Number `json:"duration"`
 	Steps    []amapStep  `json:"steps"`
 }
 
@@ -324,27 +445,31 @@ type amapBikeResp struct {
 	} `json:"data"`
 }
 
+type amapTransit struct {
+	Distance json.Number `json:"distance"`
+	Duration json.Number `json:"duration"`
+	Segments []struct {
+		Walking struct {
+			Steps []amapStep `json:"steps"`
+		} `json:"walking"`
+		Bus struct {
+			Buslines []struct {
+				Polyline string `json:"polyline"`
+			} `json:"buslines"`
+		} `json:"bus"`
+		Railway struct {
+			Name  string     `json:"name"`
+			Steps []amapStep `json:"steps"`
+		} `json:"railway"`
+	} `json:"segments"`
+}
+
 type amapTransitResp struct {
 	Status   string `json:"status"`
 	Info     string `json:"info"`
 	Infocode string `json:"infocode"`
 	Route    struct {
-		Transits []struct {
-			Segments []struct {
-				Walking struct {
-					Steps []amapStep `json:"steps"`
-				} `json:"walking"`
-				Bus struct {
-					Buslines []struct {
-						Polyline string `json:"polyline"`
-					} `json:"buslines"`
-				} `json:"bus"`
-				Railway struct {
-					Name  string     `json:"name"`
-					Steps []amapStep `json:"steps"`
-				} `json:"railway"`
-			} `json:"segments"`
-		} `json:"transits"`
+		Transits []amapTransit `json:"transits"`
 	} `json:"route"`
 }
 

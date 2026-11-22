@@ -40,3 +40,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	common.OK(c, resp)
 }
+
+func (h *AuthHandler) WechatLogin(c *gin.Context) {
+	var req service.WechatLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Fail(c, common.BadRequest(err.Error()))
+		return
+	}
+	resp, err := h.auth.WechatLogin(c.Request.Context(), req)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	common.OK(c, resp)
+}

@@ -1,4 +1,5 @@
 import { getLanguage, getTranslations } from '../../../utils/i18n';
+import { getRoute, Route, Waypoint } from '../../../services/api';
 
 Page({
   mapContext: null as any,
@@ -32,6 +33,15 @@ Page({
 
     if (options.routeId) {
       this.loadRoute(options.routeId);
+    } else {
+      // Direct entry without a route: show a friendly error instead of
+      // spinning forever.
+      wx.showModal({
+        title: lang === 'en' ? 'Route not found' : '未找到路线',
+        content: lang === 'en' ? 'Please generate a route first.' : '请先生成一条行程路线。',
+        showCancel: false,
+        success: () => wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/user/routeInput/index' }) })
+      });
     }
   },
   onReady() {
@@ -44,16 +54,10 @@ Page({
   async loadRoute(routeId: string) {
     wx.showLoading({ title: 'Loading...' });
     try {
-      const db = wx.cloud.database();
-      const res = await db.collection('routes').doc(routeId).get();
-      const route = res.data;
-
-      console.log('Loaded route data:', route);
-
+      const route = await getRoute(routeId);
       if (!route) {
         throw new Error('Route not found');
       }
-
       this.setData({ routeData: route });
       this.renderMap(route);
     } catch (error) {
@@ -62,7 +66,7 @@ Page({
         title: 'Failed to load route',
         icon: 'none'
       });
-      
+
       // Optional: Navigate back after delay
       setTimeout(() => {
         wx.navigateBack();
@@ -72,25 +76,31 @@ Page({
     }
   },
 
-  renderMap(route: any) {
+  renderMap(route: Route) {
     if (!route.waypoints || route.waypoints.length === 0) return;
 
+    const toLatLng = (wp: Waypoint | { lat: number; lng: number }) => ({
+      latitude: (wp as Waypoint).lat,
+      longitude: (wp as Waypoint).lng
+    });
+
     const totalPoints = route.waypoints.length;
-    const markers = route.waypoints.map((wp: any, index: number) => {
+    const markers = route.waypoints.map((wp: Waypoint, index: number) => {
       const isStart = index === 0;
       const isEnd = index === totalPoints - 1;
       const size = isStart || isEnd ? 40 : 32;
       const display = totalPoints > 6 && !isStart && !isEnd ? 'BYCLICK' : 'ALWAYS';
+      const name = getLanguage() === 'zh' ? wp.name : (wp.nameEn || wp.name);
       return {
         id: index,
-        latitude: wp.latitude,
-        longitude: wp.longitude,
-        title: wp.name,
+        latitude: wp.lat,
+        longitude: wp.lng,
+        title: name,
         width: size,
         height: size,
         zIndex: isStart || isEnd ? 100 : 80,
         callout: {
-          content: wp.name,
+          content: name,
           padding: 8,
           borderRadius: 4,
           display
@@ -98,18 +108,13 @@ Page({
       };
     });
 
-    let points: any[] = [];
-    if (route.polyline && Array.isArray(route.polyline)) {
-      points = route.polyline.map((p: string) => {
-        const [lat, lng] = p.split(',').map(Number);
-        return { latitude: lat, longitude: lng };
-      });
-    } else {
-      // Fallback: connect waypoints
-      points = route.waypoints.map((wp: any) => ({
-        latitude: wp.latitude,
-        longitude: wp.longitude
-      }));
+    // Backend polyline is [{lat, lng}]; fall back to connecting waypoints.
+    let points: any[] = (route.polyline || []).map((p) => ({
+      latitude: p.lat,
+      longitude: p.lng
+    }));
+    if (points.length < 2) {
+      points = route.waypoints.map((wp: Waypoint) => toLatLng(wp));
     }
 
     if (points.length > 800) {
@@ -125,8 +130,8 @@ Page({
     }];
 
     const center = {
-      latitude: route.waypoints[0].latitude,
-      longitude: route.waypoints[0].longitude
+      latitude: route.waypoints[0].lat,
+      longitude: route.waypoints[0].lng
     };
 
     this.setData({
@@ -135,10 +140,7 @@ Page({
       center
     });
     const fitPoints = this.reduceNearbyPoints(
-      route.waypoints.map((wp: any) => ({
-        latitude: wp.latitude,
-        longitude: wp.longitude
-      }))
+      route.waypoints.map((wp: Waypoint) => toLatLng(wp))
     );
     this.fitMapToPoints(fitPoints);
   },

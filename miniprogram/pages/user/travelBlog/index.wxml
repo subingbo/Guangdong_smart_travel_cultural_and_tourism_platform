@@ -9,9 +9,18 @@
       <t-icon name="magic-wand" size="48rpx" color="#7B61FF" style="margin-right: 16rpx;" />
       <text style="font-weight: bold; color: #333;">{{t.blog.aiWriter}}</text>
     </view>
+
     <view class="upload-area" bindtap="onChooseImage">
-      <block wx:if="{{tempImage}}">
-        <image src="{{tempImage}}" mode="aspectFill" class="preview-img" />
+      <block wx:if="{{tempImages.length > 0}}">
+        <view class="img-grid">
+          <view class="img-cell" wx:for="{{tempImages}}" wx:key="index">
+            <image src="{{item}}" mode="aspectFill" class="preview-img" />
+            <view class="img-remove" data-index="{{index}}" catchtap="onRemoveImage">×</view>
+          </view>
+          <view class="img-cell img-add" wx:if="{{tempImages.length < 3}}">
+            <t-icon name="image-add" size="48rpx" color="#ccc" />
+          </view>
+        </view>
       </block>
       <block wx:else>
         <t-icon name="image-add" size="64rpx" color="#ccc" style="margin-bottom: 16rpx;" />
@@ -19,88 +28,61 @@
         <view class="upload-subtext">{{t.blog.aiDesc}}</view>
       </block>
     </view>
-    <t-button 
-      theme="primary" 
-      block 
+
+    <view class="topic-row">
+      <input class="topic-input" placeholder="旅行主题，例如：夜游珠江" value="{{topic}}" bindinput="onTopic" />
+    </view>
+
+    <t-button
+      theme="primary"
+      block
       loading="{{loading}}"
-      disabled="{{!tempImage}}"
+      disabled="{{!topic}}"
       bindtap="onGenerate"
       style="margin-top: 24rpx; --td-button-primary-bg-color: #7B61FF; --td-button-primary-border-color: #7B61FF;"
-    >{{t.blog.generate}}</t-button>
+    >AI 起草游记</t-button>
+  </view>
+
+  <!-- AI draft editor -->
+  <view class="create-card" wx:if="{{generatedBlog}}">
+    <view class="card-header">
+      <t-icon name="edit" size="44rpx" color="#2BA471" style="margin-right: 16rpx;" />
+      <text style="font-weight: bold; color: #333;">AI 草稿（可编辑）</text>
+    </view>
+    <input class="draft-title" value="{{generatedBlog.title}}" bindinput="onTitleInput" placeholder="标题" />
+    <textarea class="draft-content" value="{{generatedBlog.content}}" bindinput="onContentInput" maxlength="4000" auto-height placeholder="正文" />
+    <view class="draft-actions">
+      <t-button theme="default" size="medium" bindtap="onCancelEdit">取消</t-button>
+      <t-button theme="primary" size="medium" loading="{{publishing}}" bindtap="onPublish">发布游记</t-button>
+    </view>
   </view>
 
   <view class="section-title">{{t.blog.community}}</view>
 
-  <!-- Generated Blog Preview -->
-  <view class="blog-card" wx:if="{{generatedBlog}}">
-    <view class="blog-img-container">
-      <image src="{{generatedBlog.image}}" mode="aspectFill" class="blog-img" />
-      <view class="location-tag">
-        <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> AI Generated
-      </view>
+  <!-- Blog feed from backend -->
+  <view class="blog-card" wx:for="{{blogs}}" wx:key="id" data-index="{{index}}" bindtap="onLike">
+    <view class="blog-img-container" wx:if="{{item.coverImage}}">
+      <image src="{{item.coverImage}}" mode="aspectFill" class="blog-img" />
     </view>
     <view class="blog-content">
       <view class="user-info">
-        <t-avatar icon="user" size="small" />
-        <text class="username">Me</text>
+        <image wx:if="{{item.authorAvatar}}" src="{{item.authorAvatar}}" class="avatar-img" mode="aspectFill" />
+        <t-avatar wx:else icon="user" size="small" />
+        <text class="username">{{item.authorName}}</text>
         <text class="dot">•</text>
-        <text class="time">Just now</text>
+        <text class="time">{{item.createdAt}}</text>
       </view>
-      <view class="blog-title">{{generatedBlog.title}}</view>
-      <view class="blog-desc">{{generatedBlog.content}}</view>
+      <view class="blog-title">{{item.title}}</view>
+      <view class="blog-desc">{{item.content}}</view>
       <view class="actions">
-        <view class="action-item"><t-icon name="heart" style="margin-right: 8rpx;" /> 0</view>
-        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> 0</view>
+        <view class="action-item {{item.likedByMe ? 'liked' : ''}}">
+          <t-icon name="{{item.likedByMe ? 'heart-filled' : 'heart'}}" style="margin-right: 8rpx;" /> {{item.likes}}
+        </view>
+        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> {{item.commentCount}}</view>
         <view class="action-item share"><t-icon name="share" /></view>
       </view>
     </view>
   </view>
 
-  <view class="blog-card">
-    <view class="blog-img-container">
-      <t-image src="https://images.unsplash.com/photo-1596627680004-9273c3866297?q=80&w=1000&auto=format&fit=crop" mode="aspectFill" width="100%" height="300rpx" class="blog-img" />
-      <view class="location-tag">
-        <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> {{t.blog.cantonTower}}
-      </view>
-    </view>
-    <view class="blog-content">
-      <view class="user-info">
-        <t-avatar icon="user" size="small" />
-        <text class="username">Annie L.</text>
-        <text class="dot">•</text>
-        <text class="time">2{{t.blog.hours}} {{t.blog.ago}}</text>
-      </view>
-      <view class="blog-title">{{t.blog.blog1Title}}</view>
-      <view class="blog-desc">{{t.blog.blog1Desc}}</view>
-      <view class="actions">
-        <view class="action-item"><t-icon name="heart" style="margin-right: 8rpx;" /> 245</view>
-        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> 18</view>
-        <view class="action-item share"><t-icon name="share" /></view>
-      </view>
-    </view>
-  </view>
-  
-  <view class="blog-card">
-    <view class="blog-img-container">
-      <t-image src="https://images.unsplash.com/photo-1565557623262-b51c2513a641?q=80&w=1000&auto=format&fit=crop" mode="aspectFill" width="100%" height="300rpx" class="blog-img" />
-      <view class="location-tag">
-        <t-icon name="location" size="24rpx" style="margin-right: 4rpx;" /> {{t.blog.shamian}}
-      </view>
-    </view>
-    <view class="blog-content">
-      <view class="user-info">
-        <t-avatar icon="user" size="small" />
-        <text class="username">Bob M.</text>
-        <text class="dot">•</text>
-        <text class="time">5h ago</text>
-      </view>
-      <view class="blog-title">{{t.blog.blog2Title}}</view>
-      <view class="blog-desc">{{t.blog.blog2Desc}}</view>
-      <view class="actions">
-        <view class="action-item"><t-icon name="heart" style="margin-right: 8rpx;" /> 120</view>
-        <view class="action-item"><t-icon name="chat" style="margin-right: 8rpx;" /> 5</view>
-        <view class="action-item share"><t-icon name="share" /></view>
-      </view>
-    </view>
-  </view>
+  <view wx:if="{{blogs.length === 0}}" class="empty-feed">还没有游记，发布第一篇吧</view>
 </view>

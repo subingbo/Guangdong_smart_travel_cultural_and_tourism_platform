@@ -1,4 +1,7 @@
 import { getLanguage, getTranslations } from '../../../utils/i18n';
+import { generateRoute } from '../../../services/api';
+import { getToken } from '../../../utils/auth';
+import { gotoLogin } from '../../../utils/request';
 
 Page({
   data: {
@@ -114,35 +117,16 @@ Page({
     wx.getLocation({
       type: 'gcj02',
       success: (res) => {
-        const center = { latitude: res.latitude, longitude: res.longitude };
-        this.updatePreviewRoute(center);
+        this.setData({
+          previewCenter: { latitude: res.latitude, longitude: res.longitude }
+        });
       },
       fail: () => {
-        this.updatePreviewRoute(this.data.previewCenter);
+        // Devtools often denies location; fall back to Guangzhou center.
+        this.setData({
+          previewCenter: { latitude: 23.1291, longitude: 113.2644 }
+        });
       }
-    });
-  },
-  updatePreviewRoute(center: { latitude: number; longitude: number }) {
-    const points = [
-      { latitude: center.latitude, longitude: center.longitude },
-      { latitude: center.latitude + 0.015, longitude: center.longitude + 0.01 },
-      { latitude: center.latitude + 0.03, longitude: center.longitude + 0.02 }
-    ];
-    const markers = [
-      { id: 0, latitude: points[0].latitude, longitude: points[0].longitude, width: 36, height: 36 },
-      { id: 1, latitude: points[1].latitude, longitude: points[1].longitude, width: 32, height: 32 },
-      { id: 2, latitude: points[2].latitude, longitude: points[2].longitude, width: 36, height: 36 }
-    ];
-    const polyline = [{
-      points,
-      color: '#3CAA3C',
-      width: 6,
-      arrowLine: true
-    }];
-    this.setData({
-      previewCenter: center,
-      previewMarkers: markers,
-      previewPolyline: polyline
     });
   },
 
@@ -206,37 +190,32 @@ Page({
       return;
     }
 
+    if (!getToken()) {
+      wx.showModal({
+        title: '需要登录',
+        content: '生成行程需要先登录，是否前往登录页？',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) gotoLogin();
+        }
+      });
+      return;
+    }
+
     this.setData({ loading: true });
 
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'aiService',
-        data: {
-          action: 'generate_smart_route',
-          payload: {
-            duration,
-            interests,
-            pace,
-            mode,
-            location: 'Guangzhou' // Default for now
-          }
-        }
+      const route = await generateRoute({
+        days: duration,
+        interests,
+        pace,
+        mode
       });
-
-      const result = res.result as any;
-      if (result.success) {
-        wx.navigateTo({
-          url: `/pages/user/map/index?routeId=${result.routeId}`
-        });
-      } else {
-        throw new Error(result.message || 'Generation failed');
-      }
+      wx.navigateTo({
+        url: `/pages/user/map/index?routeId=${route.id}`
+      });
     } catch (error: any) {
       console.error('Route generation failed:', error);
-      wx.showToast({
-        title: 'Failed to generate route',
-        icon: 'none'
-      });
     } finally {
       this.setData({ loading: false });
     }

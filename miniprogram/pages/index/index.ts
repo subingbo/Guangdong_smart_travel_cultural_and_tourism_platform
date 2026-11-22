@@ -1,4 +1,5 @@
 import { getLanguage, getTranslations } from '../../utils/i18n';
+import { listScenics, Scenic } from '../../services/api';
 
 Page({
   data: {
@@ -11,7 +12,6 @@ Page({
   },
 
   onLoad() {
-    // Removed fetchSceneryImages from onLoad to ensure fresh random images on every show
     const lang = getLanguage();
     this.setData({ t: getTranslations(lang) });
   },
@@ -23,41 +23,21 @@ Page({
       })
     }
     const lang = getLanguage();
-    const translations = getTranslations(lang);
-    // Initialize 't' with default translations if not set to avoid null prop errors
-    if (!this.data.t || Object.keys(this.data.t).length === 0) {
-      this.setData({ t: translations });
-    } else {
-      this.setData({ t: translations });
-    }
+    this.setData({ t: getTranslations(lang) });
     this.fetchSceneryImages();
   },
 
   async fetchSceneryImages() {
     try {
-      if (!wx.cloud) {
-        console.error('wx.cloud not available');
-        return;
-      }
-      
-      const res = await wx.cloud.callFunction({
-        name: 'getSceneryImages',
-      });
-      
-      console.log('Fetched images:', res);
-      
-      if (res.result && (res.result as any).images) {
-        this.setData({
-          swiperList: (res.result as any).images
-        });
-      } else {
-        console.error('Cloud function returned error or no images:', res.result);
-        // Fallback to default images if cloud function returns error
-        throw new Error('Cloud function error');
-      }
+      const scenics = await listScenics();
+      const swiperList = scenics.map((s: Scenic) => ({
+        url: s.imageUrl,
+        name: getLanguage() === 'zh' ? s.titleCn : s.titleEn,
+      }));
+      this.setData({ swiperList });
     } catch (err) {
       console.error('Failed to fetch scenery images', err);
-      // Fallback images if cloud function fails (e.g. offline dev)
+      // Fallback images keep the home page alive when the backend is offline.
       this.setData({
         swiperList: [
           { url: 'https://images.unsplash.com/photo-1599571234909-29ed5d1321d6', name: 'Guangzhou Tower' },
@@ -65,14 +45,6 @@ Page({
         ]
       });
     }
-  },
-
-  onSwiperTap(e: any) {
-    console.log('Swiper tap', e);
-  },
-
-  onRecommendTap() {
-    console.log('Recommend tap');
   },
 
   onTapExploreItem(e: any) {

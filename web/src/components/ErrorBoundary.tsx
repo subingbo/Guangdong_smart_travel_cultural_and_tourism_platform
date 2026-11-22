@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button, Result } from 'antd';
+import i18n from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -10,7 +11,7 @@ interface State {
   message: string;
 }
 
-/** Catches render errors so a data edge case never turns into a white screen. */
+// Catches render errors so a data edge case never turns into a white screen.
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, message: '' };
 
@@ -27,11 +28,11 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <Result
           status="error"
-          title="页面出错了 / Something went wrong"
+          title={i18n.t('common.error')}
           subTitle={this.state.message}
           extra={
             <Button type="primary" onClick={() => window.location.reload()}>
-              重新加载 / Reload
+              {i18n.t('common.reload')}
             </Button>
           }
         />

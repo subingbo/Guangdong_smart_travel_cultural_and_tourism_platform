@@ -6,8 +6,7 @@ cloud.init({
 });
 
 const API_KEY = process.env.DASHSCOPE_API_KEY;
-// Use environment variable or fallback to the key provided by user
-const TENCENT_MAP_API_KEY = process.env.TENCENT_MAP_API_KEY || '23ZBZ-6A46V-S2VPJ-5PSYS-2OQWH-QDF5L';
+const TENCENT_MAP_API_KEY = process.env.TENCENT_MAP_API_KEY || '';
 
 // Aliyun Bailian API Endpoints
 const CHAT_URL = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation'; 

@@ -27,7 +27,8 @@ func (s *JwtService) Issue(userId int64, username string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.key)
 }
 
-/** Returns the user id embedded in the token, or an error if invalid/expired. */
+// ParseUserID returns the user id embedded in the token, or an error when the
+// token is invalid or expired.
 func (s *JwtService) ParseUserID(token string) (int64, error) {
 	parsed, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {

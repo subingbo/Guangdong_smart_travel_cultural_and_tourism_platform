@@ -1,0 +1,140 @@
+{
+  "comment": "Source listing order for the 60-page copyright sample. The first 30 pages should land in main.go + planner + agent; the last 30 pages in the Web components/pages.",
+  "sections": [
+    {
+      "name": "Go 入口",
+      "files": ["server-go/main.go"]
+    },
+    {
+      "name": "确定性规划器",
+      "files": [
+        "server-go/internal/planner/planner.go",
+        "server-go/internal/planner/timewindow.go",
+        "server-go/internal/planner/free_window.go",
+        "server-go/internal/planner/models.go",
+        "server-go/internal/planner/validate.go"
+      ]
+    },
+    {
+      "name": "Agent 运行时",
+      "files": [
+        "server-go/internal/agent/config.go",
+        "server-go/internal/agent/types.go",
+        "server-go/internal/agent/loop.go",
+        "server-go/internal/agent/registry.go",
+        "server-go/internal/agent/project.go",
+        "server-go/internal/agent/events.go",
+        "server-go/internal/agent/executor.go"
+      ]
+    },
+    {
+      "name": "AI 供应商",
+      "files": [
+        "server-go/internal/ai/openai.go",
+        "server-go/internal/ai/qwen.go",
+        "server-go/internal/ai/tencent.go",
+        "server-go/internal/ai/amap.go",
+        "server-go/internal/ai/weather.go",
+        "server-go/internal/ai/travel.go",
+        "server-go/internal/ai/provider.go"
+      ]
+    },
+    {
+      "name": "业务服务",
+      "globs": ["server-go/internal/service/*.go"]
+    },
+    {
+      "name": "数据访问",
+      "globs": ["server-go/internal/repo/*.go"]
+    },
+    {
+      "name": "接口层",
+      "globs": ["server-go/internal/handler/*.go"]
+    },
+    {
+      "name": "模型与基础设施",
+      "globs": [
+        "server-go/internal/model/*.go",
+        "server-go/internal/auth/*.go",
+        "server-go/internal/common/*.go"
+      ]
+    },
+    {
+      "name": "微信小程序",
+      "files": [
+        "miniprogram/app.ts",
+        "miniprogram/app.json",
+        "miniprogram/app.wxss",
+        "miniprogram/utils/i18n.ts",
+        "miniprogram/utils/util.ts"
+      ],
+      "globs": [
+        "miniprogram/custom-tab-bar/*.ts",
+        "miniprogram/custom-tab-bar/*.wxml",
+        "miniprogram/custom-tab-bar/*.wxss",
+        "miniprogram/pages/**/*.ts",
+        "miniprogram/pages/**/*.wxml",
+        "miniprogram/pages/**/*.wxss"
+      ]
+    },
+    {
+      "name": "CloudBase 云函数",
+      "globs": ["cloudfunctions/*/index.js"]
+    },
+    {
+      "name": "数据库",
+      "files": ["sql/schema.sql", "sql/seed.sql"],
+      "globs": ["sql/migrations/*.sql"]
+    },
+    {
+      "name": "部署资产",
+      "files": [
+        "deploy/bootstrap.sh",
+        "deploy/nginx-travel-gd.conf",
+        "deploy/travel-gd.service"
+      ]
+    },
+    {
+      "name": "Web 样式",
+      "files": ["web/src/index.css"]
+    },
+    {
+      "name": "Web 基础设施",
+      "files": [
+        "web/src/main.tsx",
+        "web/src/App.tsx",
+        "web/src/api/client.ts",
+        "web/src/api/agent.ts",
+        "web/src/context/AuthContext.tsx",
+        "web/src/i18n/index.ts"
+      ]
+    },
+    {
+      "name": "Web 组件",
+      "files": [
+        "web/src/components/AmapRouteMap.tsx",
+        "web/src/components/AppHeader.tsx",
+        "web/src/components/AuthModal.tsx",
+        "web/src/components/BlogCard.tsx",
+        "web/src/components/BlogEditor.tsx",
+        "web/src/components/BottomNav.tsx",
+        "web/src/components/ErrorBoundary.tsx",
+        "web/src/components/PlanCard.tsx"
+      ]
+    },
+    {
+      "name": "Web 页面",
+      "files": [
+        "web/src/pages/HomePage.tsx",
+        "web/src/pages/RoutePage.tsx",
+        "web/src/pages/RouteDetailPage.tsx",
+        "web/src/pages/BlogPage.tsx",
+        "web/src/pages/BlogDetailPage.tsx",
+        "web/src/pages/UserProfilePage.tsx",
+        "web/src/pages/NotificationsPage.tsx",
+        "web/src/pages/ProfilePage.tsx",
+        "web/src/pages/GuidePage.tsx"
+      ]
+    }
+  ]
+}

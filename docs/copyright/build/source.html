@@ -1,0 +1,2959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>南粤文化入境游 AI 智能伴游系统 V1.0 源程序</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; }
+.page { width: 210mm; height: 296.6mm; padding: 10mm 12mm; page-break-after: always; position: relative; overflow: hidden; }
+.page:last-child { page-break-after: auto; }
+.header { height: 8mm; font-family: "Microsoft YaHei", sans-serif; font-size: 8.5pt; color: #333; border-bottom: 0.4pt solid #999; text-align: center; }
+pre { margin: 3mm 0 0; font-family: "Consolas", "Courier New", "Microsoft YaHei", monospace; font-size: 8.1pt; line-height: 13.1pt; white-space: pre; }
+.footer { position: absolute; bottom: 6mm; left: 0; right: 0; text-align: center; font-family: "Microsoft YaHei", sans-serif; font-size: 8pt; color: #555; }
+</style>
+</head>
+<body>
+<div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>// ===== server-go/main.go =====
+// Travel Guangdong tourist API. Gin + sqlx; listens on :8081 by default.
+package main
+
+import (
+    "context"
+    "errors"
+    "log"
+    "net/http"
+    "os"
+    "os/signal"
+    "strconv"
+    "syscall"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    _ "github.com/go-sql-driver/mysql"
+    "github.com/jmoiron/sqlx"
+
+    "github.com/travelgd/server-go/internal/agent"
+    "github.com/travelgd/server-go/internal/ai"
+    "github.com/travelgd/server-go/internal/auth"
+    "github.com/travelgd/server-go/internal/handler"
+    "github.com/travelgd/server-go/internal/repo"
+    "github.com/travelgd/server-go/internal/service"
+)
+
+func env(key, fallback string) string {
+    if v := os.Getenv(key); v != "" {
+        return v
+    }
+    return fallback
+}
+
+func envInt(key string, fallback int) int {
+    if v := os.Getenv(key); v != "" {
+        if n, err := strconv.Atoi(v); err == nil {
+            return n
+        }
+    }
+    return fallback
+}
+
+func main() {
+    dbHost := env("DB_HOST", "localhost")
+    dbPort := env("DB_PORT", "3306")
+    dbUser := env("DB_USER", "travelgd")
+    dbPass := env("DB_PASSWORD", "travelgd")
+    dbName := env("DB_NAME", "travel_gd")
+    dsn := dbUser + ":" + dbPass + "@tcp(" + dbHost + ":" + dbPort + ")/" + dbName +</pre><div class="footer">第 1 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        "?parseTime=true&amp;loc=Asia%2FShanghai&amp;charset=utf8mb4"
+
+    db := sqlx.MustConnect("mysql", dsn)
+    // The agent runs blocking LLM/AMap calls inside goroutines; keep the
+    // database pool as the hard ceiling rather than letting it grow unbounded.
+    db.SetMaxOpenConns(envInt("DB_MAX_OPEN_CONNS", 10))
+    db.SetMaxIdleConns(envInt("DB_MAX_IDLE_CONNS", 5))
+    db.SetConnMaxLifetime(time.Duration(envInt("DB_CONN_MAX_LIFETIME_MINUTES", 30)) * time.Minute)
+    db.SetConnMaxIdleTime(5 * time.Minute)
+
+    expireHours, _ := strconv.Atoi(env("JWT_EXPIRE_HOURS", "72"))
+    jwtSvc := auth.NewJwtService(
+        env("JWT_SECRET", "change-me-to-a-long-random-secret-at-least-32-chars"), expireHours)
+
+    qwen := ai.NewQwenClient(
+        env("DASHSCOPE_API_KEY", ""),
+        env("AI_CHAT_URL", "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/gene
+    ration"),
+        env("AI_MODEL", "qwen-plus"))
+
+    // Prefer AMap. Tencent stays as a fallback for environments that only have
+    // the old key: AMap JS API keys cannot call the Web service API.
+    var amapClient *ai.AmapClient
+    var weatherClient *ai.WeatherClient
+    var mapAPI ai.RouteProvider
+    if amapKey := env("AMAP_WEB_KEY", ""); amapKey != "" {
+        amapClient = ai.NewAmapClient(
+            amapKey,
+            env("AMAP_ROUTE_URL", "https://restapi.amap.com/v3/direction"),
+            env("AMAP_TRANSIT_CITY", "广州"))
+        weatherClient = ai.NewWeatherClient(
+            amapKey,
+            env("AMAP_WEATHER_URL", "https://restapi.amap.com/v3/weather/weatherInfo"))
+        mapAPI = amapClient
+    } else {
+        mapAPI = ai.NewTencentRouteClient(
+            env("TENCENT_MAP_API_KEY", ""),
+            env("MAP_ROUTE_URL", "https://apis.map.qq.com/ws/direction/v1"))
+    }
+
+    // Repositories
+    userRepo := repo.NewUserRepo(db)
+    scenicRepo := repo.NewScenicRepo(db)
+    placeRepo := repo.NewPlaceRepo(db)
+    knowledgeRepo := repo.NewKnowledgeRepo(db)
+    favoriteRepo := repo.NewFavoriteRepo(db)
+    blogRepo := repo.NewBlogRepo(db)
+    routeRepo := repo.NewRouteRepo(db)
+    guideRepo := repo.NewGuideRepo(db)
+    commentRepo := repo.NewCommentRepo(db)</pre><div class="footer">第 2 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    followRepo := repo.NewFollowRepo(db)
+    notificationRepo := repo.NewNotificationRepo(db)
+
+    // Services
+    authSvc := service.NewAuthService(userRepo, jwtSvc)
+    notificationSvc := service.NewNotificationService(notificationRepo)
+    meSvc := service.NewMeService(authSvc, userRepo, favoriteRepo, routeRepo, blogRepo, followRepo, 
+    notificationRepo)
+    catalogSvc := service.NewCatalogService(scenicRepo, placeRepo)
+    favoriteSvc := service.NewFavoriteService(favoriteRepo, catalogSvc)
+    routeSvc := service.NewRouteService(routeRepo, qwen, mapAPI)
+    blogSvc := service.NewBlogService(blogRepo, qwen, notificationSvc)
+    commentSvc := service.NewCommentService(commentRepo, blogRepo, notificationSvc)
+    userSvc := service.NewUserService(userRepo, blogRepo, followRepo, blogSvc, notificationSvc)
+    guideSvc := service.NewGuideService(guideRepo, knowledgeRepo, qwen)
+
+    // Handlers
+    authH := handler.NewAuthHandler(authSvc)
+    meH := handler.NewMeHandler(meSvc)
+    catalogH := handler.NewCatalogHandler(catalogSvc)
+    favoriteH := handler.NewFavoriteHandler(favoriteSvc)
+    routeH := handler.NewRouteHandler(routeSvc)
+    blogH := handler.NewBlogHandler(blogSvc)
+    commentH := handler.NewCommentHandler(commentSvc)
+    userH := handler.NewUserHandler(userSvc)
+    notificationH := handler.NewNotificationHandler(notificationSvc)
+    uploadH := handler.NewUploadHandler(env("UPLOAD_DIR", "/opt/travel-gd/uploads"))
+    guideH := handler.NewGuideHandler(guideSvc)
+
+    // --- AI agent wiring -------------------------------------------------
+    // The legacy QwenClient above stays for /guide/chat and /routes/generate.
+    // The agent uses the OpenAI-compatible endpoint because it needs tools,
+    // streaming deltas and usage accounting.
+    agentEnabled := env("AGENT_ENABLED", "true") == "true"
+    agentDebug := env("AGENT_DEBUG", "false") == "true"
+    openaiClient := ai.NewOpenAIClient(
+        env("DASHSCOPE_API_KEY", ""),
+        env("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        env("AI_MODEL", "qwen-plus"),
+        env("AI_STREAM", "true") == "true")
+    if !openaiClient.Enabled() {
+        agentEnabled = false
+    }
+
+    agentRepo := repo.NewAgentRepo(db)
+    travelSvc := ai.NewTravelService(amapClient, envInt("AGENT_MAP_CONCURRENCY", 8))
+    planSvc := service.NewAgentPlanService(agentRepo, guideRepo, placeRepo, routeRepo)
+    agentTools := service.NewAgentTools(placeRepo, favoriteRepo, knowledgeRepo, routeRepo, travelSvc
+    , planSvc, weatherClient)
+    registry, registryErr := agent.NewRegistry(agentTools.All()...)</pre><div class="footer">第 3 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    if registryErr != nil {
+        log.Fatalf("agent tools: %v", registryErr)
+    }
+    runner := agent.NewRunner(openaiClient, registry, agent.LoadLimits())
+
+    maxRuns := envInt("AGENT_MAX_CONCURRENT_RUNS", 4)
+    queueCapacity := envInt("AGENT_QUEUE_CAPACITY", 16)
+    queueTimeout := time.Duration(envInt("AGENT_QUEUE_TIMEOUT_SECONDS", 30)) * time.Second
+    var runExecutor agent.Executor
+    if env("AGENT_EXECUTOR_MODE", "spawn") == "fixed" {
+        runExecutor = agent.NewFixedExecutor(maxRuns, queueCapacity, queueTimeout)
+    } else {
+        runExecutor = agent.NewSpawnExecutor(maxRuns, queueCapacity, queueTimeout)
+    }
+    runSvc := service.NewAgentRunService(db, guideRepo, agentRepo, userRepo, runner, runExecutor, se
+    rvice.AgentRunConfig{
+        Enabled:            agentEnabled,
+        Model:              env("AI_MODEL", "qwen-plus"),
+        MaxConcurrentRuns:  maxRuns,
+        QueueCapacity:      queueCapacity,
+        QueueTimeout:       queueTimeout,
+        RunTimeout:         time.Duration(envInt("AGENT_RUN_TIMEOUT_SECONDS", 300)) * time.Second,
+        HistoryMessages:    envInt("AGENT_HISTORY_MESSAGES", 12),
+        MaxOutputBytes:     envInt("AGENT_MAX_OUTPUT_BYTES", 64*1024),
+        RateLimitPerMinute: envInt("AGENT_RATE_LIMIT_PER_MINUTE", 10),
+        Debug:              agentDebug,
+    })
+    recoverCtx, recoverCancel := context.WithTimeout(context.Background(), 10*time.Second)
+    if err := runSvc.RecoverInterrupted(recoverCtx); err != nil {
+        log.Printf("agent recovery: %v", err)
+    }
+    recoverCancel()
+    shutdownFns = append(shutdownFns, runSvc.Shutdown)
+    agentH := handler.NewAgentHandler(runSvc, planSvc, guideSvc, agentDebug)
+
+    r := gin.Default()
+    api := r.Group("/api")
+    {
+        api.POST("/auth/register", authH.Register)
+        api.POST("/auth/login", authH.Login)
+
+        api.GET("/scenics", catalogH.ListScenics)
+        api.GET("/scenics/:id", catalogH.GetScenic)
+        api.GET("/places", catalogH.ListPlaces)
+        api.GET("/places/:id", catalogH.GetPlace)
+
+        optional := api.Group("", handler.OptionalAuth(jwtSvc))
+        optional.GET("/blogs", blogH.Feed)
+        optional.GET("/blogs/:id", blogH.Detail)
+        optional.GET("/blogs/:id/comments", commentH.List)</pre><div class="footer">第 4 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        optional.GET("/users/:id", userH.Profile)
+        optional.GET("/users/:id/blogs", userH.Blogs)
+        optional.GET("/users/:id/followers", userH.Followers)
+        optional.GET("/users/:id/following", userH.Following)
+
+        protected := api.Group("", handler.RequireAuth(jwtSvc))
+        protected.GET("/me", meH.Profile)
+        protected.PUT("/me", meH.Update)
+        protected.GET("/me/stats", meH.Stats)
+        protected.GET("/me/blogs", blogH.MyBlogs)
+        protected.GET("/favorites", favoriteH.List)
+        protected.POST("/favorites", favoriteH.Add)
+        protected.DELETE("/favorites/:placeId", favoriteH.Remove)
+        protected.POST("/routes/generate", routeH.Generate)
+        protected.GET("/routes", routeH.List)
+        protected.GET("/routes/:id", routeH.Detail)
+        protected.POST("/blogs", blogH.Publish)
+        protected.PUT("/blogs/:id", blogH.Update)
+        protected.DELETE("/blogs/:id", blogH.Delete)
+        protected.POST("/blogs/draft", blogH.Draft)
+        protected.POST("/blogs/:id/like", blogH.Like)
+        protected.DELETE("/blogs/:id/like", blogH.Unlike)
+        protected.POST("/blogs/:id/comments", commentH.Create)
+        protected.DELETE("/comments/:id", commentH.Delete)
+        protected.POST("/users/:id/follow", userH.Follow)
+        protected.DELETE("/users/:id/follow", userH.Unfollow)
+        protected.GET("/notifications", notificationH.List)
+        protected.GET("/notifications/unread-count", notificationH.UnreadCount)
+        protected.POST("/notifications/read", notificationH.MarkRead)
+        protected.POST("/notifications/read-all", notificationH.MarkAllRead)
+        protected.POST("/upload", uploadH.Upload)
+        protected.POST("/guide/chat", guideH.Chat)
+        protected.GET("/guide/sessions/:id", guideH.Session)
+
+        protected.POST("/agent/runs", agentH.CreateRun)
+        protected.GET("/agent/runs/:id", agentH.GetRun)
+        protected.GET("/agent/runs/:id/events", agentH.Stream)
+        protected.POST("/agent/runs/:id/cancel", agentH.Cancel)
+        protected.POST("/agent/runs/:id/plan/confirm", agentH.ConfirmPlan)
+        protected.GET("/agent/conversations", agentH.ListConversations)
+        protected.GET("/agent/conversations/:id", agentH.GetConversation)
+        if agentDebug {
+            protected.GET("/agent/debug/metrics", agentH.Metrics)
+        }
+    }
+
+    port := env("PORT", "8081")
+    // HOST is empty by default (listen on all interfaces) so docker-compose keeps
+    // working; production sets HOST=127.0.0.1 to keep the backend behind nginx.
+    host := env("HOST", "")</pre><div class="footer">第 5 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>
+    srv := &amp;http.Server{
+        Addr:              host + ":" + port,
+        Handler:           r,
+        ReadHeaderTimeout: 10 * time.Second,
+        IdleTimeout:       120 * time.Second,
+    }
+
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
+    errCh := make(chan error, 1)
+    go func() {
+        log.Printf("travel-gd listening on %s", srv.Addr)
+        errCh &lt;- srv.ListenAndServe()
+    }()
+
+    select {
+    case err := &lt;-errCh:
+        if err != nil &amp;&amp; !errors.Is(err, http.ErrServerClosed) {
+            log.Fatalf("server failed: %v", err)
+        }
+    case &lt;-ctx.Done():
+        log.Printf("shutting down")
+    }
+
+    shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    defer cancel()
+    for _, fn := range shutdownFns {
+        fn(shutdownCtx)
+    }
+    if err := srv.Shutdown(shutdownCtx); err != nil {
+        log.Printf("server shutdown: %v", err)
+    }
+    db.Close()
+}
+
+// shutdownFns lets optional subsystems (the agent run manager) drain before
+// the HTTP server closes.
+var shutdownFns []func(context.Context)
+// ===== server-go/internal/planner/planner.go =====
+package planner
+
+import (
+    "context"
+    "errors"
+    "fmt"
+    "sort"
+    "time"
+)</pre><div class="footer">第 6 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>
+// Plan solves one itinerary request. It is deterministic for a fixed
+// provider and returns at most three solutions ordered by score.
+func Plan(ctx context.Context, req Request) (Outcome, error) {
+    if req.Travel == nil {
+        return Outcome{}, errors.New("planner: travel provider is required")
+    }
+    if !req.WindowEnd.After(req.WindowStart) {
+        return noSolution("时间窗口无效"), nil
+    }
+    if req.WindowEnd.Sub(req.WindowStart) &gt; MaxWindowHours*time.Hour {
+        return noSolution("时间窗口不能超过 24 小时"), nil
+    }
+    mode, ok := NormalizeMode(req.TransportMode)
+    if !ok {
+        return noSolution("交通方式仅支持 WALK / RIDE / DRIVE / TAXI / TRANSIT"), nil
+    }
+    if len(req.Candidates) == 0 {
+        return noSolution("至少需要一个候选地点"), nil
+    }
+
+    candidates := append([]Place(nil), req.Candidates...)
+    if len(candidates) &gt; MaxCandidates {
+        candidates = candidates[:MaxCandidates]
+    }
+    for i := range candidates {
+        if candidates[i].StayMinutes &lt;= 0 {
+            candidates[i].StayMinutes = DefaultStay
+        }
+    }
+    buffer := req.BufferAfterMinutes
+    if buffer &lt; 0 {
+        buffer = 0
+    }
+    headBuffer := req.HeadBufferMinutes
+    if headBuffer &lt; 0 {
+        headBuffer = 0
+    }
+
+    stayFloor := 0
+    for _, p := range candidates {
+        stayFloor += p.StayMinutes
+    }
+    need := stayFloor + buffer + headBuffer
+    windows := FindFree(req.Busy, req.WindowStart, req.WindowEnd, need)
+    if len(windows) == 0 {
+        return noSolution(fmt.Sprintf(
+            "所选时间范围内没有 ≥%d 分钟的连续空闲（最少需要：停留 %d + 收尾缓冲 %d + 首段衔接 %d）
+    ",
+            need, stayFloor, buffer, headBuffer)), nil</pre><div class="footer">第 7 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    }
+
+    perms := permutations(candidates)
+    if len(perms) == 0 {
+        return noSolution("候选地点组合超出求解能力（可减少地点数量）"), nil
+    }
+
+    solutions := make([]Solution, 0, MaxSolutions*4)
+    windowsExamined := 0
+    for _, window := range windows {
+        windowsExamined++
+        for _, order := range perms {
+            if err := ctx.Err(); err != nil {
+                return Outcome{}, err
+            }
+            sol, ok, err := solve(ctx, window, order, mode, buffer, headBuffer,
+                req.Busy, req.Travel, req.Origin, req.ReturnToStart)
+            if err != nil {
+                return Outcome{}, err
+            }
+            if ok {
+                solutions = append(solutions, sol)
+            }
+            if len(solutions) &gt;= MaxPermutations*2 {
+                break
+            }
+        }
+        if len(solutions) &gt;= MaxPermutations*2 {
+            break
+        }
+    }
+    if len(solutions) == 0 {
+        return noSolution(fmt.Sprintf(
+            "窗口时长可容纳停留（%d 分钟），但加入实际交通耗时或首尾衔接缓冲后超出窗口；可尝试更近的
+    地点、更快的交通方式、缩短停留或减少地点",
+            stayFloor)), nil
+    }
+
+    sort.SliceStable(solutions, func(i, j int) bool {
+        return solutions[i].Score &gt; solutions[j].Score
+    })
+    if len(solutions) &gt; MaxSolutions {
+        solutions = solutions[:MaxSolutions]
+    }
+    for i := range solutions {
+        solutions[i].SolutionID = fmt.Sprintf("sol-%d", i+1)
+    }
+    return Outcome{Solutions: solutions, WindowsExamined: windowsExamined}, nil
+}
+</pre><div class="footer">第 8 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>func noSolution(reason string) Outcome {
+    return Outcome{Suggestions: []string{reason}, WindowsExamined: 0}
+}
+
+func solve(ctx context.Context,
+    window Interval,
+    order []Place,
+    mode string,
+    bufferAfter, headBuffer int,
+    busy []Interval,
+    travel TravelProvider,
+    origin *Origin,
+    returnToStart bool,
+) (Solution, bool, error) {
+    cursor := window.Start
+    for _, b := range busy {
+        if b.End.After(window.Start) {
+            continue
+        }
+        earliest := b.End.Add(time.Duration(headBuffer) * time.Minute)
+        if earliest.After(cursor) {
+            cursor = earliest
+        }
+    }
+
+    type node struct {
+        place  Place
+        origin bool
+    }
+    seq := make([]node, 0, len(order)+2)
+    if origin != nil {
+        seq = append(seq, node{
+            place:  Place{Name: origin.Name, Lat: origin.Lat, Lng: origin.Lng, Source: "USER_LOCATIO
+    N"},
+            origin: true,
+        })
+    }
+    for _, p := range order {
+        seq = append(seq, node{place: p})
+    }
+    if origin != nil &amp;&amp; returnToStart {
+        seq = append(seq, node{
+            place:  Place{Name: origin.Name, Lat: origin.Lat, Lng: origin.Lng, Source: "USER_LOCATIO
+    N"},
+            origin: true,
+        })
+    }
+
+    stops := make([]Stop, 0, len(seq))
+    segments := make([]Segment, 0, len(seq)-1)</pre><div class="footer">第 9 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    totalTravel := 0
+    totalDistance := 0
+    anyEstimated := false
+    stayTotal := 0
+
+    for i, n := range seq {
+        if i &gt; 0 {
+            prev := seq[i-1].place
+            info, err := travel.Route(ctx, mode, Coordinate{Lat: prev.Lat, Lng: prev.Lng}, Coordinat
+    e{Lat: n.place.Lat, Lng: n.place.Lng})
+            if err != nil {
+                return Solution{}, false, err
+            }
+            if info.DurationMinutes &lt; 0 {
+                info.DurationMinutes = 0
+            }
+            totalTravel += info.DurationMinutes
+            totalDistance += info.DistanceMeters
+            anyEstimated = anyEstimated || info.Estimated
+            segments = append(segments, Segment{
+                FromIndex:      i - 1,
+                ToIndex:        i,
+                TransportMode:  mode,
+                DistanceMeters: info.DistanceMeters,
+                DurationMin:    info.DurationMinutes,
+                Estimated:      info.Estimated,
+                Polyline:       info.Polyline,
+            })
+            cursor = cursor.Add(time.Duration(info.DurationMinutes) * time.Minute)
+        }
+
+        if n.origin {
+            stops = append(stops, Stop{
+                Name:          n.place.Name,
+                Lat:           n.place.Lat,
+                Lng:           n.place.Lng,
+                Source:        "USER_LOCATION",
+                ArrivalTime:   cursor,
+                LeaveTime:     cursor,
+                StayMinutes:   0,
+                TransportMode: mode,
+            })
+            continue
+        }
+
+        stay := n.place.StayMinutes
+        if stay &lt;= 0 {
+            stay = DefaultStay
+        }
+        stayTotal += stay</pre><div class="footer">第 10 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        leave := cursor.Add(time.Duration(stay) * time.Minute)
+        stops = append(stops, Stop{
+            PlaceID:       n.place.PlaceID,
+            Name:          n.place.Name,
+            NameEn:        n.place.NameEn,
+            Lat:           n.place.Lat,
+            Lng:           n.place.Lng,
+            Source:        n.place.Source,
+            ArrivalTime:   cursor,
+            LeaveTime:     leave,
+            StayMinutes:   stay,
+            TransportMode: mode,
+        })
+        cursor = leave
+    }
+
+    tailEnd := cursor.Add(time.Duration(bufferAfter) * time.Minute)
+    if tailEnd.After(window.End) {
+        return Solution{}, false, nil
+    }
+    remaining := window.End.Sub(tailEnd)
+
+    ranks := make([]int, 0, len(order))
+    rankSum := 0
+    favorites := 0
+    for _, p := range order {
+        ranks = append(ranks, p.Rank)
+        rankSum += p.Rank
+        if p.Source == "FAVORITE" {
+            favorites++
+        }
+    }
+    denom := len(order) - 1
+    if denom &lt; 1 {
+        denom = 1
+    }
+    breakdown := ScoreBreakdown{
+        RankScore:      clamp01(1 - float64(rankSum)/float64(len(order))/float64(denom)),
+        RemainingScore: clamp01(float64(remaining) / float64(window.End.Sub(window.Start))),
+        FavoriteScore:  clamp01(float64(favorites) / float64(len(order))),
+        TravelScore:    clamp01(1 - float64(totalTravel)/float64(totalTravel+stayTotal+1)),
+    }
+    confidence := ConfidenceNone
+    if len(segments) &gt; 0 {
+        confidence = ConfidenceAMAP
+        if anyEstimated {
+            confidence = ConfidenceEstimated
+        }
+    }
+</pre><div class="footer">第 11 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    return Solution{
+        Stops:                  stops,
+        Segments:               segments,
+        TotalTravelMinutes:     totalTravel,
+        TotalDistanceMeters:    totalDistance,
+        BufferRemainingMinutes: int(remaining / time.Minute),
+        Score:                  breakdown.Total(),
+        ScoreBreakdown:         breakdown,
+        RouteConfidence:        confidence,
+        WindowStart:            window.Start,
+        WindowEnd:              window.End,
+        CandidateRanks:         ranks,
+    }, true, nil
+}
+
+func permutations(items []Place) [][]Place {
+    out := make([][]Place, 0, MaxPermutations)
+    work := append([]Place(nil), items...)
+    var walk func(k int)
+    walk = func(k int) {
+        if len(out) &gt;= MaxPermutations {
+            return
+        }
+        if k == len(work) {
+            out = append(out, append([]Place(nil), work...))
+            return
+        }
+        for i := k; i &lt; len(work); i++ {
+            work[k], work[i] = work[i], work[k]
+            walk(k + 1)
+            work[k], work[i] = work[i], work[k]
+            if len(out) &gt;= MaxPermutations {
+                return
+            }
+        }
+    }
+    walk(0)
+    return out
+}
+
+func clamp01(v float64) float64 {
+    if v &lt; 0 {
+        return 0
+    }
+    if v &gt; 1 {
+        return 1
+    }
+    return v
+}
+</pre><div class="footer">第 12 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>// NewDraft turns a solution into the server-owned plan snapshot.
+func NewDraft(sol Solution, title, summary string, version int, now time.Time) Draft {
+    return Draft{
+        Version:             version,
+        PlannerVersion:      Version,
+        Title:               title,
+        Summary:             summary,
+        WindowStart:         sol.WindowStart,
+        WindowEnd:           sol.WindowEnd,
+        TransportMode:       transportOf(sol),
+        RouteConfidence:     sol.RouteConfidence,
+        Stops:               sol.Stops,
+        Segments:            sol.Segments,
+        TotalTravelMinutes:  sol.TotalTravelMinutes,
+        TotalDistanceMeters: sol.TotalDistanceMeters,
+        Score:               sol.Score,
+        ScoreBreakdown:      sol.ScoreBreakdown,
+        CreatedAt:           now,
+        Status:              "draft",
+    }
+}
+
+func transportOf(sol Solution) string {
+    for _, s := range sol.Segments {
+        if s.TransportMode != "" {
+            return s.TransportMode
+        }
+    }
+    return ""
+}
+// ===== server-go/internal/planner/timewindow.go =====
+package planner
+
+import (
+    "fmt"
+    "regexp"
+    "strconv"
+    "strings"
+    "time"
+)
+
+// Window is the resolved planning window in the caller's location.
+type Window struct {
+    Start time.Time
+    End   time.Time
+}
+
+var (
+    weekdayRe = regexp.MustCompile(`(下)?(?:周|星期|礼拜)([一二三四五六日天])`)
+    dateRe    = regexp.MustCompile(`(\d{4})-(\d{1,2})-(\d{1,2})`)</pre><div class="footer">第 13 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    cnDateRe  = regexp.MustCompile(`(\d{1,2})月(\d{1,2})日`)
+    clockRe   = regexp.MustCompile(`(\d{1,2})\s*[:：点]\s*(\d{1,2})?`)
+)
+
+// ParseWindow resolves a natural-language window such as "周六下午" or
+// "明天下午两点到五点" into absolute times. Relative dates are resolved
+// against now, never against the model's own clock.
+func ParseWindow(when string, durationMinutes int, now time.Time) (Window, error) {
+    raw := strings.TrimSpace(when)
+    if raw == "" {
+        return Window{}, fmt.Errorf("请提供规划时间，例如“明天下午”或“2026-11-07 14:00-18:00”")
+    }
+    loc := now.Location()
+
+    // Parse ISO before lower-casing: RFC3339 needs its uppercase T, and the
+    // timezone offset (+08:00) must not be mistaken for a clock time.
+    if w, ok := parseISORange(raw, loc); ok {
+        return validateWindow(w, now, durationMinutes)
+    }
+
+    text := normalizeClockWords(strings.ToLower(raw))
+
+    day, weekdayExpr, err := resolveDay(text, now)
+    if err != nil {
+        return Window{}, err
+    }
+
+    periodStart, periodEnd := periodOf(text)
+    times := clockRe.FindAllStringSubmatch(text, -1)
+    var start, end time.Time
+    switch len(times) {
+    case 0:
+        start = time.Date(day.Year(), day.Month(), day.Day(), periodStart, 0, 0, 0, loc)
+        end = time.Date(day.Year(), day.Month(), day.Day(), periodEnd, 0, 0, 0, loc)
+        if durationMinutes &gt; 0 {
+            want := start.Add(time.Duration(durationMinutes) * time.Minute)
+            if want.Before(end) {
+                end = want
+            }
+        }
+    case 1:
+        h, _ := strconv.Atoi(times[0][1])
+        h = applyPeriod(h, periodStart)
+        m := 0
+        if strings.Contains(times[0][0], "半") {
+            m = 30
+        } else if times[0][2] != "" {
+            m, _ = strconv.Atoi(times[0][2])
+        }
+        start = time.Date(day.Year(), day.Month(), day.Day(), h, m, 0, 0, loc)</pre><div class="footer">第 14 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        if durationMinutes &gt; 0 {
+            end = start.Add(time.Duration(durationMinutes) * time.Minute)
+        } else {
+            end = time.Date(day.Year(), day.Month(), day.Day(), periodEnd, 0, 0, 0, loc)
+            if !end.After(start) {
+                end = start.Add(4 * time.Hour)
+            }
+        }
+    default:
+        h1, _ := strconv.Atoi(times[0][1])
+        h1 = applyPeriod(h1, periodStart)
+        m1 := 0
+        if times[0][2] != "" {
+            m1, _ = strconv.Atoi(times[0][2])
+        }
+        h2, _ := strconv.Atoi(times[1][1])
+        h2 = applyPeriod(h2, periodStart)
+        m2 := 0
+        if times[1][2] != "" {
+            m2, _ = strconv.Atoi(times[1][2])
+        }
+        start = time.Date(day.Year(), day.Month(), day.Day(), h1, m1, 0, 0, loc)
+        end = time.Date(day.Year(), day.Month(), day.Day(), h2, m2, 0, 0, loc)
+    }
+
+    // A bare weekday that has already started today means the next week.
+    if weekdayExpr &amp;&amp; !start.After(now) {
+        start = start.AddDate(0, 0, 7)
+        end = end.AddDate(0, 0, 7)
+    }
+    return validateWindow(Window{Start: start, End: end}, now, durationMinutes)
+}
+
+func parseISORange(text string, loc *time.Location) (Window, bool) {
+    parts := strings.Split(text, "/")
+    if len(parts) != 2 {
+        parts = strings.Split(text, " ~ ")
+    }
+    if len(parts) == 2 {
+        start, err1 := time.Parse(time.RFC3339, strings.TrimSpace(parts[0]))
+        end, err2 := time.Parse(time.RFC3339, strings.TrimSpace(parts[1]))
+        if err1 == nil &amp;&amp; err2 == nil {
+            return Window{Start: start.In(loc), End: end.In(loc)}, true
+        }
+    }
+    if start, err := time.Parse(time.RFC3339, text); err == nil {
+        return Window{Start: start.In(loc), End: start.In(loc).Add(4 * time.Hour)}, true
+    }
+    return Window{}, false
+}</pre><div class="footer">第 15 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>
+func resolveDay(text string, now time.Time) (time.Time, bool, error) {
+    loc := now.Location()
+    today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+    switch {
+    case strings.Contains(text, "大后天"):
+        return today.AddDate(0, 0, 3), false, nil
+    case strings.Contains(text, "后天") || strings.Contains(text, "day after tomorrow"):
+        return today.AddDate(0, 0, 2), false, nil
+    case strings.Contains(text, "明天") || strings.Contains(text, "tomorrow"):
+        return today.AddDate(0, 0, 1), false, nil
+    case strings.Contains(text, "今天") || strings.Contains(text, "today"):
+        return today, false, nil
+    }
+
+    if m := dateRe.FindStringSubmatch(text); len(m) == 4 {
+        y, _ := strconv.Atoi(m[1])
+        mo, _ := strconv.Atoi(m[2])
+        d, _ := strconv.Atoi(m[3])
+        return time.Date(y, time.Month(mo), d, 0, 0, 0, 0, loc), false, nil
+    }
+    if m := cnDateRe.FindStringSubmatch(text); len(m) == 3 {
+        mo, _ := strconv.Atoi(m[1])
+        d, _ := strconv.Atoi(m[2])
+        day := time.Date(now.Year(), time.Month(mo), d, 0, 0, 0, 0, loc)
+        if day.Before(today) {
+            day = day.AddDate(1, 0, 0)
+        }
+        return day, false, nil
+    }
+
+    if m := weekdayRe.FindStringSubmatch(text); len(m) == 3 {
+        target := weekdayFromCN(m[2])
+        nextWeek := m[1] == "下"
+        delta := int(target - now.Weekday())
+        if delta &lt; 0 {
+            delta += 7
+        }
+        if nextWeek {
+            delta += 7
+        }
+        return today.AddDate(0, 0, delta), true, nil
+    }
+
+    switch {
+    case strings.Contains(text, "monday"):
+        return nextEnglishWeekday(today, now, time.Monday, text), true, nil
+    case strings.Contains(text, "tuesday"):
+        return nextEnglishWeekday(today, now, time.Tuesday, text), true, nil</pre><div class="footer">第 16 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    case strings.Contains(text, "wednesday"):
+        return nextEnglishWeekday(today, now, time.Wednesday, text), true, nil
+    case strings.Contains(text, "thursday"):
+        return nextEnglishWeekday(today, now, time.Thursday, text), true, nil
+    case strings.Contains(text, "friday"):
+        return nextEnglishWeekday(today, now, time.Friday, text), true, nil
+    case strings.Contains(text, "saturday"):
+        return nextEnglishWeekday(today, now, time.Saturday, text), true, nil
+    case strings.Contains(text, "sunday"):
+        return nextEnglishWeekday(today, now, time.Sunday, text), true, nil
+    }
+
+    return today, false, fmt.Errorf("无法识别日期“%s”，请改为“明天下午”或“2026-11-07 14:00-18:0
+    0”", text)
+}
+
+func weekdayFromCN(s string) time.Weekday {
+    switch s {
+    case "一":
+        return time.Monday
+    case "二":
+        return time.Tuesday
+    case "三":
+        return time.Wednesday
+    case "四":
+        return time.Thursday
+    case "五":
+        return time.Friday
+    case "六":
+        return time.Saturday
+    default:
+        return time.Sunday
+    }
+}
+
+func nextEnglishWeekday(today, now time.Time, target time.Weekday, text string) time.Time {
+    delta := int(target - now.Weekday())
+    if delta &lt; 0 {
+        delta += 7
+    }
+    if strings.Contains(text, "next") {
+        delta += 7
+    }
+    return today.AddDate(0, 0, delta)
+}
+
+func periodOf(text string) (int, int) {
+    switch {
+    case strings.Contains(text, "凌晨") || strings.Contains(text, "dawn"):
+        return 5, 8</pre><div class="footer">第 17 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    case strings.Contains(text, "早上") || strings.Contains(text, "早晨") || strings.Contains(text, 
+    "上午") || strings.Contains(text, "morning"):
+        return 8, 12
+    case strings.Contains(text, "中午") || strings.Contains(text, "noon"):
+        return 11, 14
+    case strings.Contains(text, "下午") || strings.Contains(text, "afternoon"):
+        return 13, 18
+    case strings.Contains(text, "傍晚"):
+        return 17, 19
+    case strings.Contains(text, "晚上") || strings.Contains(text, "evening") || strings.Contains(tex
+    t, "night"):
+        return 18, 22
+    default:
+        return 9, 18
+    }
+}
+
+// normalizeClockWords lets "下午两点" reach the numeric clock regex.
+func normalizeClockWords(text string) string {
+    replacer := strings.NewReplacer(
+        "十二点", "12点", "十一点", "11点", "十点", "10点",
+        "九点", "9点", "八点", "8点", "七点", "7点",
+        "六点", "6点", "五点", "5点", "四点", "4点",
+        "三点", "3点", "两点", "2点", "一点", "1点",
+    )
+    return replacer.Replace(text)
+}
+
+// applyPeriod turns "下午两点" into 14:00 while leaving "上午十点" alone.
+func applyPeriod(hour, periodStart int) int {
+    if periodStart &gt;= 12 &amp;&amp; hour &lt; 12 {
+        return hour + 12
+    }
+    return hour
+}
+
+func validateWindow(w Window, now time.Time, durationMinutes int) (Window, error) {
+    if !w.End.After(w.Start) {
+        return Window{}, fmt.Errorf("结束时间必须晚于开始时间")
+    }
+    if w.End.Sub(w.Start) &gt; MaxWindowHours*time.Hour {
+        return Window{}, fmt.Errorf("时间窗口不能超过 %d 小时", MaxWindowHours)
+    }
+    if w.Start.Before(now.Add(-MinStartLeadTime)) {
+        return Window{}, fmt.Errorf("开始时间已过去，请改为未来的时间")
+    }
+    if w.Start.After(now.Add(MaxPlanHorizon)) {
+        return Window{}, fmt.Errorf("规划时间不能超过 %d 天", int(MaxPlanHorizon.Hours()/24))
+    }
+    if durationMinutes &gt; 0 &amp;&amp; w.End.Sub(w.Start) &lt; time.Duration(durationMinutes)*time.Minute {</pre><div class="footer">第 18 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        return Window{}, fmt.Errorf("时间窗口短于所需时长 %d 分钟", durationMinutes)
+    }
+    return w, nil
+}
+// ===== server-go/internal/planner/free_window.go =====
+package planner
+
+import (
+    "sort"
+    "time"
+)
+
+// FindFree subtracts merged busy intervals from [windowStart, windowEnd) and
+// returns the gaps that are at least needMinutes long.
+func FindFree(busy []Interval, windowStart, windowEnd time.Time, needMinutes int) []Interval {
+    if !windowEnd.After(windowStart) || needMinutes &lt; 0 {
+        return nil
+    }
+
+    clipped := make([]Interval, 0, len(busy))
+    for _, b := range busy {
+        start := b.Start
+        if start.Before(windowStart) {
+            start = windowStart
+        }
+        end := b.End
+        if end.After(windowEnd) {
+            end = windowEnd
+        }
+        if end.After(start) {
+            clipped = append(clipped, Interval{Start: start, End: end})
+        }
+    }
+    sort.Slice(clipped, func(i, j int) bool {
+        return clipped[i].Start.Before(clipped[j].Start)
+    })
+
+    merged := make([]Interval, 0, len(clipped))
+    for _, b := range clipped {
+        if len(merged) == 0 || b.Start.After(merged[len(merged)-1].End) {
+            merged = append(merged, b)
+            continue
+        }
+        if b.End.After(merged[len(merged)-1].End) {
+            merged[len(merged)-1].End = b.End
+        }
+    }
+
+    gaps := make([]Interval, 0, len(merged)+1)
+    cursor := windowStart</pre><div class="footer">第 19 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    for _, b := range merged {
+        if b.Start.After(cursor) {
+            gaps = append(gaps, Interval{Start: cursor, End: b.Start})
+        }
+        if b.End.After(cursor) {
+            cursor = b.End
+        }
+    }
+    if windowEnd.After(cursor) {
+        gaps = append(gaps, Interval{Start: cursor, End: windowEnd})
+    }
+
+    need := time.Duration(needMinutes) * time.Minute
+    out := make([]Interval, 0, len(gaps))
+    for _, gap := range gaps {
+        if gap.End.Sub(gap.Start) &gt;= need {
+            out = append(out, gap)
+        }
+    }
+    return out
+}
+// ===== server-go/internal/planner/models.go =====
+// Package planner is a deterministic spatiotemporal itinerary solver.
+// It never calls an LLM and never touches the database: callers provide
+// candidates, a time window and a TravelProvider.
+package planner
+
+import (
+    "context"
+    "time"
+)
+
+const (
+    // Version is stamped on drafts and traces so algorithm changes are visible.
+    Version = "deterministic-v1"
+
+    MaxCandidates    = 4
+    MaxPermutations  = 24
+    MaxSolutions     = 3
+    DefaultStay      = 60
+    DefaultBuffer    = 10
+    MaxDraftStops    = 8
+    MaxWindowHours   = 24
+    MaxPlanHorizon   = 30 * 24 * time.Hour
+    MinStartLeadTime = 5 * time.Minute
+)
+
+const (
+    ModeWalk    = "WALK"
+    ModeRide    = "RIDE"</pre><div class="footer">第 20 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    ModeDrive   = "DRIVE"
+    ModeTaxi    = "TAXI"
+    ModeTransit = "TRANSIT"
+)
+
+const (
+    ConfidenceAMAP      = "AMAP"
+    ConfidenceEstimated = "ESTIMATED"
+    ConfidenceNone      = "NONE"
+)
+
+// Coordinate is a GCJ-02 point, matching the seeded places data.
+type Coordinate struct {
+    Lat float64 `json:"lat"`
+    Lng float64 `json:"lng"`
+}
+
+// Interval is a half-open busy interval [Start, End).
+type Interval struct {
+    Start time.Time `json:"start"`
+    End   time.Time `json:"end"`
+}
+
+// Place is a candidate the solver may schedule.
+type Place struct {
+    PlaceID     int64   `json:"placeId"`
+    Name        string  `json:"name"`
+    NameEn      string  `json:"nameEn,omitempty"`
+    Lat         float64 `json:"lat"`
+    Lng         float64 `json:"lng"`
+    StayMinutes int     `json:"stayMinutes"`
+    Source      string  `json:"source"` // SYSTEM | FAVORITE | USER_LOCATION
+    Rank        int     `json:"rank"`   // 0 is the most relevant candidate
+}
+
+// Origin is an optional starting point (user location or a hotel).
+type Origin struct {
+    Name string  `json:"name"`
+    Lat  float64 `json:"lat"`
+    Lng  float64 `json:"lng"`
+}
+
+type Stop struct {
+    PlaceID       int64     `json:"placeId"`
+    Name          string    `json:"name"`
+    NameEn        string    `json:"nameEn,omitempty"`
+    Lat           float64   `json:"lat"`
+    Lng           float64   `json:"lng"`
+    Source        string    `json:"source"`
+    ArrivalTime   time.Time `json:"arrivalTime"`</pre><div class="footer">第 21 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    LeaveTime     time.Time `json:"leaveTime"`
+    StayMinutes   int       `json:"stayMinutes"`
+    TransportMode string    `json:"transportMode"`
+}
+
+type Segment struct {
+    FromIndex      int          `json:"fromIndex"`
+    ToIndex        int          `json:"toIndex"`
+    TransportMode  string       `json:"transportMode"`
+    DistanceMeters int          `json:"distanceMeters"`
+    DurationMin    int          `json:"durationMinutes"`
+    Estimated      bool         `json:"estimated"`
+    Polyline       []Coordinate `json:"polyline,omitempty"`
+}
+
+type ScoreBreakdown struct {
+    RankScore      float64 `json:"rankScore"`
+    RemainingScore float64 `json:"remainingScore"`
+    FavoriteScore  float64 `json:"favoriteScore"`
+    TravelScore    float64 `json:"travelScore"`
+}
+
+func (s ScoreBreakdown) Total() float64 {
+    return 0.35*s.RankScore + 0.25*s.RemainingScore + 0.20*s.FavoriteScore + 0.20*s.TravelScore
+}
+
+type Solution struct {
+    SolutionID             string         `json:"solutionId"`
+    Stops                  []Stop         `json:"stops"`
+    Segments               []Segment      `json:"segments"`
+    TotalTravelMinutes     int            `json:"totalTravelMinutes"`
+    TotalDistanceMeters    int            `json:"totalDistanceMeters"`
+    BufferRemainingMinutes int            `json:"bufferRemainingMinutes"`
+    Score                  float64        `json:"score"`
+    ScoreBreakdown         ScoreBreakdown `json:"scoreBreakdown"`
+    RouteConfidence        string         `json:"routeConfidence"`
+    WindowStart            time.Time      `json:"windowStart"`
+    WindowEnd              time.Time      `json:"windowEnd"`
+    CandidateRanks         []int          `json:"candidateRanks"`
+}
+
+type Outcome struct {
+    Solutions       []Solution `json:"solutions"`
+    Suggestions     []string   `json:"suggestions,omitempty"`
+    WindowsExamined int        `json:"windowsExamined"`
+}
+
+// TravelInfo is a single travel leg. Estimated is true when the provider
+// degraded to a straight-line estimate; callers must surface that.
+type TravelInfo struct {</pre><div class="footer">第 22 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    DurationMinutes int
+    DistanceMeters  int
+    Estimated       bool
+    Polyline        []Coordinate
+}
+
+type TravelProvider interface {
+    Route(ctx context.Context, mode string, from, to Coordinate) (TravelInfo, error)
+}
+
+// Request is the solver input. Busy may be empty when the domain has no
+// calendar module; sharing one still lets a calendar be plugged in later.
+type Request struct {
+    Busy               []Interval
+    WindowStart        time.Time
+    WindowEnd          time.Time
+    Candidates         []Place
+    TransportMode      string
+    BufferAfterMinutes int
+    HeadBufferMinutes  int
+    Origin             *Origin
+    ReturnToStart      bool
+    Travel             TravelProvider
+}
+
+// Draft is the server-owned plan snapshot stored in ai_runs.plan_json and
+// guide_sessions.plan_json. All times come from the solver, never the model.
+type Draft struct {
+    Version             int            `json:"version"`
+    PlannerVersion      string         `json:"plannerVersion"`
+    Title               string         `json:"title"`
+    Summary             string         `json:"summary,omitempty"`
+    WindowStart         time.Time      `json:"windowStart"`
+    WindowEnd           time.Time      `json:"windowEnd"`
+    TransportMode       string         `json:"transportMode"`
+    RouteConfidence     string         `json:"routeConfidence"`
+    Stops               []Stop         `json:"stops"`
+    Segments            []Segment      `json:"segments"`
+    TotalTravelMinutes  int            `json:"totalTravelMinutes"`
+    TotalDistanceMeters int            `json:"totalDistanceMeters"`
+    Score               float64        `json:"score"`
+    ScoreBreakdown      ScoreBreakdown `json:"scoreBreakdown"`
+    Suggestions         []string       `json:"suggestions,omitempty"`
+    CreatedAt           time.Time      `json:"createdAt"`
+    Status              string         `json:"status"` // draft | confirmed
+}
+
+// NormalizeMode maps loose user/model spellings to a solver mode.
+func NormalizeMode(raw string) (string, bool) {
+    switch raw {</pre><div class="footer">第 23 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    case ModeWalk, "walk", "walking", "WALKING", "步行":
+        return ModeWalk, true
+    case ModeRide, "ride", "bike", "bicycling", "BICYCLING", "骑行":
+        return ModeRide, true
+    case ModeDrive, "drive", "driving", "DRIVING", "驾车", "自驾":
+        return ModeDrive, true
+    case ModeTaxi, "taxi", "打车":
+        return ModeTaxi, true
+    case ModeTransit, "transit", "public", "公交", "地铁":
+        return ModeTransit, true
+    default:
+        return "", false
+    }
+}
+
+// MapMode converts a solver mode to the routes.mode column vocabulary.
+func MapMode(mode string) string {
+    switch mode {
+    case ModeWalk:
+        return "walking"
+    case ModeRide:
+        return "bicycling"
+    case ModeTransit:
+        return "transit"
+    default:
+        return "driving"
+    }
+}
+// ===== server-go/internal/planner/validate.go =====
+package planner
+
+import (
+    "fmt"
+    "math"
+    "time"
+)
+
+// ValidateDraft checks the shape of a server-built plan before it is shown
+// or saved. It intentionally does not query the database; callers revalidate
+// that places still exist at confirm time.
+func ValidateDraft(d *Draft, now time.Time) error {
+    if d == nil {
+        return fmt.Errorf("plan is empty")
+    }
+    if d.Version &lt;= 0 {
+        return fmt.Errorf("plan version must be positive")
+    }
+    if d.PlannerVersion == "" {
+        return fmt.Errorf("planner version is missing")
+    }</pre><div class="footer">第 24 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    if !d.WindowEnd.After(d.WindowStart) {
+        return fmt.Errorf("plan window is invalid")
+    }
+    if d.WindowEnd.Sub(d.WindowStart) &gt; MaxWindowHours*time.Hour {
+        return fmt.Errorf("plan window exceeds %d hours", MaxWindowHours)
+    }
+    if d.WindowStart.Before(now.Add(-MinStartLeadTime)) {
+        return fmt.Errorf("plan window is in the past")
+    }
+    if _, ok := NormalizeMode(d.TransportMode); !ok {
+        // A single-stop plan may have no segments and therefore no mode.
+        if len(d.Segments) &gt; 0 {
+            return fmt.Errorf("unsupported transport mode %q", d.TransportMode)
+        }
+    }
+    if d.RouteConfidence != ConfidenceAMAP &amp;&amp; d.RouteConfidence != ConfidenceEstimated &amp;&amp; d.RouteCon
+    fidence != ConfidenceNone {
+        return fmt.Errorf("unsupported route confidence %q", d.RouteConfidence)
+    }
+    if math.IsNaN(d.Score) || math.IsInf(d.Score, 0) || d.Score &lt; 0 || d.Score &gt; 1.000001 {
+        return fmt.Errorf("plan score is out of range")
+    }
+
+    places := 0
+    prevLeave := d.WindowStart
+    for i, s := range d.Stops {
+        if s.PlaceID &lt;= 0 {
+            if s.Source != "USER_LOCATION" {
+                return fmt.Errorf("stop %d has no place id", i)
+            }
+        } else {
+            places++
+        }
+        if s.StayMinutes &lt; 0 {
+            return fmt.Errorf("stop %d has a negative stay", i)
+        }
+        if !validCoord(s.Lat, s.Lng) {
+            return fmt.Errorf("stop %d has invalid coordinates", i)
+        }
+        if s.LeaveTime.Before(s.ArrivalTime) {
+            return fmt.Errorf("stop %d leaves before it arrives", i)
+        }
+        if s.ArrivalTime.Before(prevLeave) {
+            return fmt.Errorf("stop %d overlaps the previous stop", i)
+        }
+        if s.ArrivalTime.Before(d.WindowStart) || s.LeaveTime.After(d.WindowEnd) {
+            return fmt.Errorf("stop %d is outside the plan window", i)
+        }
+        prevLeave = s.LeaveTime
+    }</pre><div class="footer">第 25 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    if places == 0 {
+        return fmt.Errorf("plan has no place stops")
+    }
+    if places &gt; MaxDraftStops {
+        return fmt.Errorf("plan has too many stops (max %d)", MaxDraftStops)
+    }
+
+    travel := 0
+    distance := 0
+    for i, seg := range d.Segments {
+        if seg.FromIndex &lt; 0 || seg.ToIndex &lt; 0 ||
+            seg.FromIndex &gt;= len(d.Stops) || seg.ToIndex &gt;= len(d.Stops) ||
+            seg.FromIndex == seg.ToIndex {
+            return fmt.Errorf("segment %d has invalid stop indexes", i)
+        }
+        if seg.DurationMin &lt; 0 || seg.DistanceMeters &lt; 0 {
+            return fmt.Errorf("segment %d has a negative value", i)
+        }
+        travel += seg.DurationMin
+        distance += seg.DistanceMeters
+    }
+    if d.TotalTravelMinutes != travel &amp;&amp; len(d.Segments) &gt; 0 {
+        return fmt.Errorf("total travel minutes do not match segments")
+    }
+    if d.TotalDistanceMeters != distance &amp;&amp; len(d.Segments) &gt; 0 {
+        return fmt.Errorf("total distance does not match segments")
+    }
+    return nil
+}
+
+// ValidateSolution checks a solver output before it is cached for submit_plan.
+func ValidateSolution(s *Solution) error {
+    if s == nil {
+        return fmt.Errorf("solution is empty")
+    }
+    if len(s.Stops) == 0 {
+        return fmt.Errorf("solution has no stops")
+    }
+    if math.IsNaN(s.Score) || math.IsInf(s.Score, 0) {
+        return fmt.Errorf("solution score is invalid")
+    }
+    return nil
+}
+
+// validCoord keeps drafts inside mainland China. Guangdong-specific bboxes
+// are too narrow once users plan cross-city trips.
+func validCoord(lat, lng float64) bool {
+    if math.IsNaN(lat) || math.IsNaN(lng) || math.IsInf(lat, 0) || math.IsInf(lng, 0) {
+        return false
+    }</pre><div class="footer">第 26 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    return lat &gt;= 18 &amp;&amp; lat &lt;= 54 &amp;&amp; lng &gt;= 73 &amp;&amp; lng &lt;= 135
+}
+// ===== server-go/internal/agent/config.go =====
+package agent
+
+import (
+    "os"
+    "strconv"
+    "time"
+)
+
+// Limits bounds one run. Defaults are intentionally small: the production
+// host is a 2C1G VM with a 256-384MB cgroup.
+type Limits struct {
+    MaxSteps            int
+    MaxToolCallsPerStep int
+    ToolTimeout         time.Duration
+    MaxArgumentsBytes   int
+    MaxToolResultBytes  int
+    ToolBudgets         map[string]int
+}
+
+func DefaultLimits() Limits {
+    return Limits{
+        MaxSteps:            8,
+        MaxToolCallsPerStep: 3,
+        ToolTimeout:         20 * time.Second,
+        MaxArgumentsBytes:   16 * 1024,
+        MaxToolResultBytes:  16 * 1024,
+        ToolBudgets: map[string]int{
+            "search_places":    4,
+            "get_place":        8,
+            "list_favorites":   2,
+            "search_knowledge": 4,
+            "get_weather":      2,
+            "route_leg":        24,
+            "plan_itinerary":   3,
+            "submit_plan":      2,
+            "list_my_routes":   2,
+        },
+    }
+}
+
+// LoadLimits reads AGENT_* overrides and keeps the defaults for absent keys.
+func LoadLimits() Limits {
+    limits := DefaultLimits()
+    limits.MaxSteps = envInt("AGENT_MAX_STEPS", limits.MaxSteps)
+    limits.MaxToolCallsPerStep = envInt("AGENT_MAX_TOOL_CALLS_PER_STEP", limits.MaxToolCallsPerStep)
+    limits.ToolTimeout = time.Duration(envInt("AGENT_TOOL_TIMEOUT_SECONDS", int(limits.ToolTimeout/t
+    ime.Second))) * time.Second</pre><div class="footer">第 27 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    limits.MaxArgumentsBytes = envInt("AGENT_MAX_ARGUMENTS_BYTES", limits.MaxArgumentsBytes)
+    limits.MaxToolResultBytes = envInt("AGENT_MAX_TOOL_RESULT_BYTES", limits.MaxToolResultBytes)
+    return limits
+}
+
+func (l Limits) Budget(name string) int {
+    if n, ok := l.ToolBudgets[name]; ok {
+        return n
+    }
+    return 99
+}
+
+func (l Limits) Clone() Limits {
+    out := l
+    out.ToolBudgets = make(map[string]int, len(l.ToolBudgets))
+    for k, v := range l.ToolBudgets {
+        out.ToolBudgets[k] = v
+    }
+    return out
+}
+
+func envInt(key string, fallback int) int {
+    if v := os.Getenv(key); v != "" {
+        if n, err := strconv.Atoi(v); err == nil {
+            return n
+        }
+    }
+    return fallback
+}
+// ===== server-go/internal/agent/types.go =====
+// Package agent contains a small, dependency-light ReAct loop, tool
+// registry, run executor and SSE event model. It knows nothing about the
+// travel domain: tools are injected by the service layer.
+package agent
+
+import (
+    "context"
+    "encoding/json"
+    "sync"
+    "time"
+)
+
+type Role string
+
+const (
+    RoleSystem    Role = "system"
+    RoleUser      Role = "user"
+    RoleAssistant Role = "assistant"
+    RoleTool      Role = "tool"
+)</pre><div class="footer">第 28 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>
+type Message struct {
+    Role       Role       `json:"role"`
+    Content    string     `json:"content,omitempty"`
+    ToolCalls  []ToolCall `json:"toolCalls,omitempty"`
+    ToolCallID string     `json:"toolCallId,omitempty"`
+    Name       string     `json:"name,omitempty"`
+}
+
+type ToolCall struct {
+    ID        string `json:"id"`
+    Name      string `json:"name"`
+    Arguments string `json:"arguments"`
+}
+
+type ToolSpec struct {
+    Name        string          `json:"name"`
+    Description string          `json:"description"`
+    Parameters  json.RawMessage `json:"parameters"`
+}
+
+type Usage struct {
+    PromptTokens     int `json:"promptTokens"`
+    CompletionTokens int `json:"completionTokens"`
+    TotalTokens      int `json:"totalTokens"`
+}
+
+type ChatRequest struct {
+    Model             string
+    Messages          []Message
+    Tools             []ToolSpec
+    ParallelToolCalls bool
+    Temperature       float64
+}
+
+type ChatResponse struct {
+    Content      string
+    ToolCalls    []ToolCall
+    FinishReason string
+    Usage        Usage
+}
+
+// Delta is an incremental chunk delivered while the provider streams.
+type Delta struct {
+    Content   string
+    Reasoning string
+    ToolCall  *ToolCallDelta
+}
+
+type ToolCallDelta struct {</pre><div class="footer">第 29 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>    Index     int
+    ID        string
+    Name      string
+    Arguments string
+}
+
+// Provider is implemented by the OpenAI-compatible client (ai package) and
+// by test fakes.
+type Provider interface {
+    StreamChat(ctx context.Context, req ChatRequest, onDelta func(Delta) error) (ChatResponse, error
+    )
+}
+
+// ExecutionContext is the trusted identity handed to tools. UserID must come
+// from the authenticated request, never from model arguments.
+type ExecutionContext struct {
+    RunID          int64
+    ConversationID int64
+    UserID         int64
+    Language       string
+    PlanVersion    int // conversation plan_version when the run started
+    State          *RunState
+}
+
+// RunState is per-run scratch space shared by tools. It is deliberately
+// untyped so the framework stays domain-agnostic.
+type RunState struct {
+    mu     sync.Mutex
+    values map[string]any
+    counts map[string]int
+    seen   map[string]struct{}
+}
+
+func NewRunState() *RunState {
+    return &amp;RunState{
+        values: make(map[string]any),
+        counts: make(map[string]int),
+        seen:   make(map[string]struct{}),
+    }
+}
+
+func (s *RunState) Set(key string, value any) {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    s.values[key] = value
+}
+
+func (s *RunState) Get(key string) (any, bool) {
+    s.mu.Lock()
+    defer s.mu.Unlock()</pre><div class="footer">第 30 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>      .get&lt;UserProfile&gt;(`/api/users/${blog.userId}`)
+      .then(setAuthor)
+      .catch(() =&gt; setAuthor(null));
+  }, [blog?.userId]);
+
+  const toggleLike = async () =&gt; {
+    if (!blog) return;
+    if (!user) {
+      openAuth();
+      return;
+    }
+    try {
+      const res = blog.likedByMe
+        ? await api.del&lt;{ likes: number; likedByMe: boolean }&gt;(`/api/blogs/${blog.id}/like`)
+        : await api.post&lt;{ likes: number; likedByMe: boolean }&gt;(`/api/blogs/${blog.id}/like`);
+      setBlog({ ...blog, likes: res.likes, likedByMe: res.likedByMe });
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const toggleFollow = async () =&gt; {
+    if (!author) return;
+    if (!user) {
+      openAuth();
+      return;
+    }
+    try {
+      if (author.isFollowing) {
+        await api.del(`/api/users/${author.user.id}/follow`);
+      } else {
+        await api.post(`/api/users/${author.user.id}/follow`);
+      }
+      setAuthor({
+        ...author,
+        isFollowing: !author.isFollowing,
+        stats: {
+          ...author.stats,
+          followers: Math.max(0, author.stats.followers + (author.isFollowing ? -1 : 1)),
+        },
+      });
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const removeBlog = () =&gt; {
+    if (!blog) return;
+    Modal.confirm({
+      title: t('blog.deletePost'),</pre><div class="footer">第 31 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>      content: t('blog.deleteConfirm'),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: async () =&gt; {
+        try {
+          await api.del(`/api/blogs/${blog.id}`);
+          message.success(t('blog.deleteSuccess'));
+          navigate('/blog');
+        } catch (e) {
+          message.error((e as Error).message);
+        }
+      },
+    });
+  };
+
+  const submitComment = async () =&gt; {
+    if (!user) {
+      openAuth();
+      return;
+    }
+    const content = commentText.trim();
+    if (!content) return;
+    setSending(true);
+    try {
+      await api.post(`/api/blogs/${blogId}/comments`, { content });
+      setCommentText('');
+      message.success(t('blog.commentSuccess'));
+      setCommentPage(1);
+      await loadComments();
+      await loadBlog();
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const removeComment = (c: Comment) =&gt; {
+    Modal.confirm({
+      title: t('common.delete'),
+      content: t('common.deleteConfirm'),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: async () =&gt; {
+        try {
+          await api.del(`/api/comments/${c.id}`);
+          await loadComments();
+          await loadBlog();</pre><div class="footer">第 32 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        } catch (e) {
+          message.error((e as Error).message);
+        }
+      },
+    });
+  };
+
+  const canDeleteComment = (c: Comment) =&gt;
+    !!user &amp;&amp; !!blog &amp;&amp; (user.id === c.userId || user.id === blog.userId);
+
+  if (loading) return &lt;Skeleton active /&gt;;
+  if (error || !blog) {
+    return (
+      &lt;Alert
+        type="error"
+        showIcon
+        message={error || t('common.error')}
+        action={
+          &lt;Button size="small" onClick={() =&gt; void loadBlog()}&gt;
+            {t('common.retry')}
+          &lt;/Button&gt;
+        }
+      /&gt;
+    );
+  }
+
+  const locale = i18n.language;
+
+  return (
+    &lt;div className="blog-detail"&gt;
+      &lt;Button type="text" icon={&lt;ArrowLeftOutlined /&gt;} onClick={() =&gt; navigate('/blog')}&gt;
+        {t('common.back')}
+      &lt;/Button&gt;
+
+      &lt;Card className="blog-detail-card"&gt;
+        &lt;h1 className="blog-detail-title"&gt;{blog.title}&lt;/h1&gt;
+
+        &lt;div className="blog-detail-meta"&gt;
+          &lt;Link to={`/user/${blog.userId}`} className="blog-author"&gt;
+            &lt;Avatar size={32} src={blog.author?.avatarUrl}&gt;
+              {blog.author?.nickname?.[0]}
+            &lt;/Avatar&gt;
+            &lt;span&gt;{blog.author?.nickname}&lt;/span&gt;
+          &lt;/Link&gt;
+          &lt;span&gt;{formatDate(blog.createdAt, locale)}&lt;/span&gt;
+        &lt;/div&gt;
+
+        {blog.images.length &gt; 0 &amp;&amp; (
+          &lt;Image.PreviewGroup&gt;
+            &lt;div className="blog-detail-images"&gt;</pre><div class="footer">第 33 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>              {blog.images.map((src, i) =&gt; (
+                &lt;Image key={i} src={src} alt={`${blog.title}-${i + 1}`} /&gt;
+              ))}
+            &lt;/div&gt;
+          &lt;/Image.PreviewGroup&gt;
+        )}
+
+        &lt;div className="blog-detail-content"&gt;{blog.content}&lt;/div&gt;
+
+        &lt;div className="blog-detail-actions"&gt;
+          &lt;Button
+            type={blog.likedByMe ? 'primary' : 'default'}
+            icon={blog.likedByMe ? &lt;HeartFilled /&gt; : &lt;HeartOutlined /&gt;}
+            onClick={toggleLike}
+          &gt;
+            {blog.likes}
+          &lt;/Button&gt;
+          &lt;span className="blog-comment-count"&gt;
+            {t('blog.comments')}: {blog.commentCount}
+          &lt;/span&gt;
+          {user?.id === blog.userId &amp;&amp; (
+            &lt;span className="blog-owner-actions"&gt;
+              &lt;Button icon={&lt;EditOutlined /&gt;} onClick={() =&gt; setEditorOpen(true)}&gt;
+                {t('common.edit')}
+              &lt;/Button&gt;
+              &lt;Button danger icon={&lt;DeleteOutlined /&gt;} onClick={removeBlog}&gt;
+                {t('common.delete')}
+              &lt;/Button&gt;
+            &lt;/span&gt;
+          )}
+        &lt;/div&gt;
+      &lt;/Card&gt;
+
+      &lt;Card className="author-card"&gt;
+        &lt;div className="author-row"&gt;
+          &lt;Link to={`/user/${blog.userId}`}&gt;
+            &lt;Avatar size={48} src={author?.user.avatarUrl || blog.author?.avatarUrl}&gt;
+              {author?.user.nickname?.[0] || blog.author?.nickname?.[0]}
+            &lt;/Avatar&gt;
+          &lt;/Link&gt;
+          &lt;div className="author-info"&gt;
+            &lt;Link to={`/user/${blog.userId}`}&gt;
+              &lt;b&gt;{author?.user.nickname || blog.author?.nickname}&lt;/b&gt;
+            &lt;/Link&gt;
+            &lt;div className="author-sub"&gt;
+              {author ? `${author.stats.posts} ${t('user.posts')} · ${author.stats.followers} ${t('
+    user.followers')}` : ''}
+            &lt;/div&gt;
+          &lt;/div&gt;
+          {user?.id !== blog.userId &amp;&amp; (</pre><div class="footer">第 34 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>            &lt;Button
+              type={author?.isFollowing ? 'default' : 'primary'}
+              icon={author?.isFollowing ? &lt;UserDeleteOutlined /&gt; : &lt;UserAddOutlined /&gt;}
+              onClick={toggleFollow}
+            &gt;
+              {author?.isFollowing ? t('user.unfollow') : t('user.follow')}
+            &lt;/Button&gt;
+          )}
+        &lt;/div&gt;
+      &lt;/Card&gt;
+
+      &lt;Card className="comments-card"&gt;
+        &lt;div className="section-title" style={{ marginTop: 0 }}&gt;
+          {t('blog.comments')} ({blog.commentCount})
+        &lt;/div&gt;
+
+        {!comments || comments.items.length === 0 ? (
+          &lt;Empty description={t('blog.noComments')} /&gt;
+        ) : (
+          &lt;div className="comment-list"&gt;
+            {comments.items.map((c) =&gt; (
+              &lt;div key={c.id} className="comment-item"&gt;
+                &lt;Link to={`/user/${c.userId}`}&gt;
+                  &lt;Avatar size={32} src={c.author?.avatarUrl}&gt;
+                    {c.author?.nickname?.[0]}
+                  &lt;/Avatar&gt;
+                &lt;/Link&gt;
+                &lt;div className="comment-main"&gt;
+                  &lt;div className="comment-head"&gt;
+                    &lt;Link to={`/user/${c.userId}`}&gt;{c.author?.nickname}&lt;/Link&gt;
+                    &lt;span&gt;{formatDate(c.createdAt, locale)}&lt;/span&gt;
+                  &lt;/div&gt;
+                  &lt;div className="comment-content"&gt;{c.content}&lt;/div&gt;
+                &lt;/div&gt;
+                {canDeleteComment(c) &amp;&amp; (
+                  &lt;Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={&lt;DeleteOutlined /&gt;}
+                    onClick={() =&gt; removeComment(c)}
+                  /&gt;
+                )}
+              &lt;/div&gt;
+            ))}
+          &lt;/div&gt;
+        )}
+
+        {comments &amp;&amp; comments.total &gt; comments.pageSize &amp;&amp; (
+          &lt;div className="pagination-row"&gt;</pre><div class="footer">第 35 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>            &lt;Pagination
+              current={comments.page}
+              pageSize={comments.pageSize}
+              total={comments.total}
+              showSizeChanger={false}
+              onChange={(p) =&gt; setCommentPage(p)}
+            /&gt;
+          &lt;/div&gt;
+        )}
+
+        &lt;div className="comment-form"&gt;
+          {user ? (
+            &lt;&gt;
+              &lt;Input.TextArea
+                rows={3}
+                value={commentText}
+                maxLength={1000}
+                showCount
+                placeholder={t('blog.commentPlaceholder')}
+                onChange={(e) =&gt; setCommentText(e.target.value)}
+              /&gt;
+              &lt;Button
+                type="primary"
+                icon={&lt;SendOutlined /&gt;}
+                loading={sending}
+                disabled={!commentText.trim()}
+                onClick={submitComment}
+              &gt;
+                {t('blog.submitComment')}
+              &lt;/Button&gt;
+            &lt;/&gt;
+          ) : (
+            &lt;Button onClick={openAuth}&gt;{t('blog.loginToComment')}&lt;/Button&gt;
+          )}
+        &lt;/div&gt;
+      &lt;/Card&gt;
+
+      &lt;BlogEditor
+        open={editorOpen}
+        initial={blog}
+        onClose={() =&gt; setEditorOpen(false)}
+        onSaved={() =&gt; {
+          setEditorOpen(false);
+          void loadBlog();
+        }}
+      /&gt;
+    &lt;/div&gt;
+  );
+}
+// ===== web/src/pages/UserProfilePage.tsx =====</pre><div class="footer">第 36 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { Alert, Avatar, Button, Card, Empty, Modal, Pagination, Skeleton, message } from 'antd';
+import { UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { api, Blog, Page, PublicUser, UserProfile } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import BlogCard from '../components/BlogCard';
+
+const PAGE_SIZE = 9;
+
+export default function UserProfilePage() {
+  const { id } = useParams&lt;{ id: string }&gt;();
+  const targetId = Number(id);
+  const { t, i18n } = useTranslation();
+  const { user, openAuth } = useAuth();
+
+  const [profile, setProfile] = useState&lt;UserProfile | null&gt;(null);
+  const [blogs, setBlogs] = useState&lt;Page&lt;Blog&gt; | null&gt;(null);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState&lt;string | null&gt;(null);
+
+  const [listKind, setListKind] = useState&lt;'followers' | 'following' | null&gt;(null);
+  const [list, setList] = useState&lt;Page&lt;PublicUser&gt; | null&gt;(null);
+  const [listLoading, setListLoading] = useState(false);
+
+  const loadProfile = useCallback(async () =&gt; {
+    setLoading(true);
+    setError(null);
+    try {
+      setProfile(await api.get&lt;UserProfile&gt;(`/api/users/${targetId}`));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [targetId]);
+
+  useEffect(() =&gt; {
+    void loadProfile();
+  }, [loadProfile]);
+
+  useEffect(() =&gt; {
+    api
+      .get&lt;Page&lt;Blog&gt;&gt;(`/api/users/${targetId}/blogs?page=${page}&amp;pageSize=${PAGE_SIZE}`)
+      .then(setBlogs)
+      .catch(() =&gt; setBlogs(null));
+  }, [targetId, page]);
+</pre><div class="footer">第 37 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>  const toggleFollow = async () =&gt; {
+    if (!profile) return;
+    if (!user) {
+      openAuth();
+      return;
+    }
+    try {
+      if (profile.isFollowing) {
+        await api.del(`/api/users/${profile.user.id}/follow`);
+      } else {
+        await api.post(`/api/users/${profile.user.id}/follow`);
+      }
+      setProfile({
+        ...profile,
+        isFollowing: !profile.isFollowing,
+        stats: {
+          ...profile.stats,
+          followers: Math.max(0, profile.stats.followers + (profile.isFollowing ? -1 : 1)),
+        },
+      });
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const openList = async (kind: 'followers' | 'following') =&gt; {
+    setListKind(kind);
+    setListLoading(true);
+    try {
+      setList(await api.get&lt;Page&lt;PublicUser&gt;&gt;(`/api/users/${targetId}/${kind}?page=1&amp;pageSize=50`));
+    } catch {
+      setList(null);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  const toggleLike = async (blog: Blog) =&gt; {
+    if (!user) {
+      openAuth();
+      return;
+    }
+    try {
+      const res = blog.likedByMe
+        ? await api.del&lt;{ likes: number; likedByMe: boolean }&gt;(`/api/blogs/${blog.id}/like`)
+        : await api.post&lt;{ likes: number; likedByMe: boolean }&gt;(`/api/blogs/${blog.id}/like`);
+      setBlogs((prev) =&gt;
+        prev
+          ? {
+              ...prev,</pre><div class="footer">第 38 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>              items: prev.items.map((b) =&gt;
+                b.id === blog.id ? { ...b, likes: res.likes, likedByMe: res.likedByMe } : b,
+              ),
+            }
+          : prev,
+      );
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  if (loading) return &lt;Skeleton active /&gt;;
+  if (error || !profile) {
+    return &lt;Alert type="error" showIcon message={error || t('user.loadFailed')} /&gt;;
+  }
+
+  const joined = new Date(profile.user.createdAt).toLocaleDateString(
+    i18n.language === 'zh' ? 'zh-CN' : 'en-US',
+  );
+
+  return (
+    &lt;div&gt;
+      &lt;Card className="profile-hero"&gt;
+        &lt;div className="profile-hero-main"&gt;
+          &lt;Avatar size={80} src={profile.user.avatarUrl}&gt;
+            {profile.user.nickname?.[0]}
+          &lt;/Avatar&gt;
+          &lt;div className="profile-hero-text"&gt;
+            &lt;h2&gt;{profile.user.nickname}&lt;/h2&gt;
+            &lt;div className="author-sub"&gt;@{profile.user.username}&lt;/div&gt;
+            &lt;div className="author-sub"&gt;
+              {t('user.joined')}: {joined}
+            &lt;/div&gt;
+          &lt;/div&gt;
+          {user?.id !== profile.user.id &amp;&amp; (
+            &lt;Button
+              type={profile.isFollowing ? 'default' : 'primary'}
+              icon={profile.isFollowing ? &lt;UserDeleteOutlined /&gt; : &lt;UserAddOutlined /&gt;}
+              onClick={toggleFollow}
+            &gt;
+              {profile.isFollowing ? t('user.unfollow') : t('user.follow')}
+            &lt;/Button&gt;
+          )}
+        &lt;/div&gt;
+
+        &lt;div className="profile-stats"&gt;
+          &lt;div&gt;
+            &lt;b&gt;{profile.stats.posts}&lt;/b&gt;
+            &lt;span&gt;{t('user.posts')}&lt;/span&gt;
+          &lt;/div&gt;</pre><div class="footer">第 39 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>          &lt;button type="button" onClick={() =&gt; void openList('followers')}&gt;
+            &lt;b&gt;{profile.stats.followers}&lt;/b&gt;
+            &lt;span&gt;{t('user.followers')}&lt;/span&gt;
+          &lt;/button&gt;
+          &lt;button type="button" onClick={() =&gt; void openList('following')}&gt;
+            &lt;b&gt;{profile.stats.following}&lt;/b&gt;
+            &lt;span&gt;{t('user.following')}&lt;/span&gt;
+          &lt;/button&gt;
+          &lt;div&gt;
+            &lt;b&gt;{profile.stats.likesReceived}&lt;/b&gt;
+            &lt;span&gt;{t('user.likesReceived')}&lt;/span&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/Card&gt;
+
+      &lt;div className="section-title"&gt;{t('profile.myPosts')}&lt;/div&gt;
+      {!blogs || blogs.items.length === 0 ? (
+        &lt;Empty description={t('user.noPosts')} /&gt;
+      ) : (
+        &lt;&gt;
+          &lt;div className="blog-grid"&gt;
+            {blogs.items.map((b) =&gt; (
+              &lt;BlogCard key={b.id} blog={b} currentUserId={user?.id} onLike={toggleLike} /&gt;
+            ))}
+          &lt;/div&gt;
+          &lt;div className="pagination-row"&gt;
+            &lt;Pagination
+              current={blogs.page}
+              pageSize={blogs.pageSize}
+              total={blogs.total}
+              showSizeChanger={false}
+              onChange={(p) =&gt; setPage(p)}
+            /&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+
+      &lt;Modal
+        open={listKind !== null}
+        title={listKind === 'followers' ? t('user.followersTitle') : t('user.followingTitle')}
+        footer={null}
+        onCancel={() =&gt; setListKind(null)}
+      &gt;
+        {listLoading ? (
+          &lt;Skeleton active /&gt;
+        ) : !list || list.items.length === 0 ? (
+          &lt;Empty /&gt;
+        ) : (
+          &lt;div className="user-list"&gt;
+            {list.items.map((u) =&gt; (</pre><div class="footer">第 40 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>              &lt;Link key={u.id} to={`/user/${u.id}`} className="user-list-item" onClick={() =&gt; setLis
+    tKind(null)}&gt;
+                &lt;Avatar src={u.avatarUrl}&gt;{u.nickname?.[0]}&lt;/Avatar&gt;
+                &lt;span&gt;{u.nickname}&lt;/span&gt;
+                &lt;small&gt;@{u.username}&lt;/small&gt;
+              &lt;/Link&gt;
+            ))}
+          &lt;/div&gt;
+        )}
+      &lt;/Modal&gt;
+    &lt;/div&gt;
+  );
+}
+// ===== web/src/pages/NotificationsPage.tsx =====
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Alert, Avatar, Button, Empty, Pagination, Segmented, Skeleton, message } from 'antd';
+import { CheckOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { api, NotificationItem, NotificationPage } from '../api/client';
+
+const PAGE_SIZE = 20;
+
+export default function NotificationsPage() {
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState&lt;'all' | 'unread'&gt;('all');
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState&lt;NotificationPage | null&gt;(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState&lt;string | null&gt;(null);
+
+  const load = useCallback(async () =&gt; {
+    setLoading(true);
+    setError(null);
+    try {
+      setData(
+        await api.get&lt;NotificationPage&gt;(
+          `/api/notifications?page=${page}&amp;pageSize=${PAGE_SIZE}&amp;filter=${filter}`,
+        ),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, filter]);
+
+  useEffect(() =&gt; {
+    void load();</pre><div class="footer">第 41 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>  }, [load]);
+
+  const openItem = async (n: NotificationItem) =&gt; {
+    if (!n.isRead) {
+      await api.post('/api/notifications/read', { ids: [n.id] }).catch(() =&gt; undefined);
+    }
+    if (n.type === 'follow' &amp;&amp; n.actor) {
+      navigate(`/user/${n.actor.id}`);
+    } else if (n.blogId) {
+      navigate(`/blog/${n.blogId}`);
+    }
+  };
+
+  const markAll = async () =&gt; {
+    try {
+      await api.post('/api/notifications/read-all');
+      message.success(t('notifications.markReadSuccess'));
+      void load();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const describe = (n: NotificationItem) =&gt; {
+    const name = n.actor?.nickname || '—';
+    if (n.type === 'like') return `${name} ${t('notifications.likedYourPost')}`;
+    if (n.type === 'comment') return `${name} ${t('notifications.commented')}`;
+    return `${name} ${t('notifications.followedYou')}`;
+  };
+
+  const detail = (n: NotificationItem) =&gt; {
+    if (n.type === 'comment') return n.commentContent || n.blogTitle;
+    return n.blogTitle;
+  };
+
+  const time = (value: string) =&gt;
+    new Date(value).toLocaleString(i18n.language === 'zh' ? 'zh-CN' : 'en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  return (
+    &lt;div className="notifications-page"&gt;
+      &lt;div className="notifications-toolbar"&gt;
+        &lt;div className="section-title" style={{ margin: 0 }}&gt;
+          {t('notifications.title')}
+        &lt;/div&gt;</pre><div class="footer">第 42 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        &lt;div className="notifications-actions"&gt;
+          &lt;Segmented
+            value={filter}
+            onChange={(v) =&gt; {
+              setFilter(v as 'all' | 'unread');
+              setPage(1);
+            }}
+            options={[
+              { label: t('notifications.all'), value: 'all' },
+              { label: t('notifications.unread'), value: 'unread' },
+            ]}
+          /&gt;
+          &lt;Button icon={&lt;CheckOutlined /&gt;} onClick={markAll}&gt;
+            {t('notifications.markAllRead')}
+          &lt;/Button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+
+      {loading ? (
+        &lt;Skeleton active /&gt;
+      ) : error ? (
+        &lt;Alert
+          type="error"
+          showIcon
+          message={error}
+          action={
+            &lt;Button size="small" onClick={() =&gt; void load()}&gt;
+              {t('common.retry')}
+            &lt;/Button&gt;
+          }
+        /&gt;
+      ) : !data || data.items.length === 0 ? (
+        &lt;Empty description={t('notifications.empty')} /&gt;
+      ) : (
+        &lt;&gt;
+          &lt;div className="notification-list"&gt;
+            {data.items.map((n) =&gt; (
+              &lt;button
+                key={n.id}
+                type="button"
+                className={`notification-item${n.isRead ? '' : ' unread'}`}
+                onClick={() =&gt; void openItem(n)}
+              &gt;
+                &lt;Avatar size={40} src={n.actor?.avatarUrl}&gt;
+                  {n.actor?.nickname?.[0]}
+                &lt;/Avatar&gt;
+                &lt;div className="notification-body"&gt;
+                  &lt;div className="notification-text"&gt;{describe(n)}&lt;/div&gt;
+                  {detail(n) &amp;&amp; &lt;div className="notification-detail"&gt;{detail(n)}&lt;/div&gt;}
+                  &lt;div className="notification-time"&gt;{time(n.createdAt)}&lt;/div&gt;</pre><div class="footer">第 43 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>                &lt;/div&gt;
+                {!n.isRead &amp;&amp; &lt;span className="notification-dot" /&gt;}
+              &lt;/button&gt;
+            ))}
+          &lt;/div&gt;
+          &lt;div className="pagination-row"&gt;
+            &lt;Pagination
+              current={data.page}
+              pageSize={data.pageSize}
+              total={data.total}
+              showSizeChanger={false}
+              onChange={(p) =&gt; setPage(p)}
+            /&gt;
+          &lt;/div&gt;
+        &lt;/&gt;
+      )}
+    &lt;/div&gt;
+  );
+}
+// ===== web/src/pages/ProfilePage.tsx =====
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Avatar,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Skeleton,
+  Tabs,
+  Upload,
+  message,
+} from 'antd';
+import { EditOutlined, GlobalOutlined, UploadOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import { api, Blog, MyStats, Page, Place, uploadImage } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import BlogCard from '../components/BlogCard';
+import BlogEditor from '../components/BlogEditor';
+
+const PAGE_SIZE = 6;
+
+export default function ProfilePage() {
+  const { t, i18n } = useTranslation();
+  const { user, refresh, signOut, openAuth } = useAuth();
+
+  const [stats, setStats] = useState&lt;MyStats | null&gt;(null);
+  const [posts, setPosts] = useState&lt;Page&lt;Blog&gt; | null&gt;(null);
+  const [favorites, setFavorites] = useState&lt;Place[]&gt;([]);</pre><div class="footer">第 44 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>  const [postPage, setPostPage] = useState(1);
+  const [tab, setTab] = useState('posts');
+  const [loading, setLoading] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [nickname, setNickname] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState&lt;Blog | null&gt;(null);
+
+  const loadStats = useCallback(async () =&gt; {
+    if (!user) {
+      setStats(null);
+      return;
+    }
+    try {
+      setStats(await api.get&lt;MyStats&gt;('/api/me/stats'));
+    } catch {
+      setStats(null);
+    }
+  }, [user?.id]);
+
+  const loadPosts = useCallback(async (page: number) =&gt; {
+    setLoading(true);
+    try {
+      setPosts(await api.get&lt;Page&lt;Blog&gt;&gt;(`/api/me/blogs?page=${page}&amp;pageSize=${PAGE_SIZE}`));
+    } catch {
+      setPosts(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadFavorites = useCallback(async () =&gt; {
+    try {
+      setFavorites(await api.get&lt;Place[]&gt;('/api/favorites'));
+    } catch {
+      setFavorites([]);
+    }
+  }, []);
+
+  useEffect(() =&gt; {
+    void loadStats();
+    void loadFavorites();
+  }, [loadStats, loadFavorites]);
+
+  useEffect(() =&gt; {
+    if (user) void loadPosts(postPage);</pre><div class="footer">第 45 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>  }, [user?.id, postPage, loadPosts]);
+
+  const openEdit = () =&gt; {
+    if (!user) return;
+    setNickname(user.nickname);
+    setAvatarUrl(user.avatarUrl || '');
+    setEditOpen(true);
+  };
+
+  const uploadAvatar = async (options: any) =&gt; {
+    try {
+      const url = await uploadImage(options.file as File, 'avatar');
+      setAvatarUrl(url);
+      options.onSuccess?.({ url });
+    } catch (e) {
+      options.onError?.(e as Error);
+      message.error((e as Error).message);
+    }
+  };
+
+  const beforeAvatar = (file: File) =&gt; {
+    if (!file.type.startsWith('image/')) {
+      message.error(t('common.onlyImages'));
+      return Upload.LIST_IGNORE;
+    }
+    if (file.size &gt; 5 * 1024 * 1024) {
+      message.error(t('common.imageTooLarge'));
+      return Upload.LIST_IGNORE;
+    }
+    return true;
+  };
+
+  const saveProfile = async () =&gt; {
+    const name = nickname.trim();
+    if (!name) {
+      message.error(t('auth.nickname'));
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.put('/api/me', { nickname: name, avatarUrl });
+      await refresh();
+      message.success(t('profile.saved'));
+      setEditOpen(false);
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };</pre><div class="footer">第 46 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>
+  const toggleLike = async (blog: Blog) =&gt; {
+    if (!user) return;
+    try {
+      const res = blog.likedByMe
+        ? await api.del&lt;{ likes: number; likedByMe: boolean }&gt;(`/api/blogs/${blog.id}/like`)
+        : await api.post&lt;{ likes: number; likedByMe: boolean }&gt;(`/api/blogs/${blog.id}/like`);
+      setPosts((prev) =&gt;
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((b) =&gt;
+                b.id === blog.id ? { ...b, likes: res.likes, likedByMe: res.likedByMe } : b,
+              ),
+            }
+          : prev,
+      );
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const removePost = async (blog: Blog) =&gt; {
+    try {
+      await api.del(`/api/blogs/${blog.id}`);
+      message.success(t('blog.deleteSuccess'));
+      void loadPosts(postPage);
+      void loadStats();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const removeFavorite = async (place: Place) =&gt; {
+    try {
+      await api.del(`/api/favorites/${place.id}`);
+      message.success(t('profile.saved'));
+      void loadFavorites();
+      void loadStats();
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  };
+
+  const switchLanguage = async () =&gt; {
+    const next = i18n.language === 'zh' ? 'en' : 'zh';
+    void i18n.changeLanguage(next);
+    if (user) {
+      await api.put('/api/me', { language: next }).catch(() =&gt; undefined);
+    }</pre><div class="footer">第 47 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>  };
+
+  if (!user) {
+    return (
+      &lt;div&gt;
+        &lt;div className="section-title"&gt;{t('profile.title')}&lt;/div&gt;
+        &lt;Card&gt;
+          &lt;div className="profile-hero-main"&gt;
+            &lt;Avatar size={64}&gt;?&lt;/Avatar&gt;
+            &lt;div className="profile-hero-text"&gt;
+              &lt;b&gt;{t('profile.guest')}&lt;/b&gt;
+              &lt;div className="author-sub"&gt;{t('profile.loginToView')}&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;Button type="primary" onClick={openAuth}&gt;
+              {t('common.login')}
+            &lt;/Button&gt;
+          &lt;/div&gt;
+        &lt;/Card&gt;
+      &lt;/div&gt;
+    );
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;div className="section-title"&gt;{t('profile.title')}&lt;/div&gt;
+
+      &lt;div className="profile-layout"&gt;
+        &lt;div className="stack"&gt;
+          &lt;Card&gt;
+            &lt;div className="profile-hero-main"&gt;
+              &lt;Avatar size={64} src={user.avatarUrl}&gt;
+                {user.nickname?.[0]}
+              &lt;/Avatar&gt;
+              &lt;div className="profile-hero-text"&gt;
+                &lt;b&gt;{user.nickname}&lt;/b&gt;
+                &lt;div className="author-sub"&gt;@{user.username}&lt;/div&gt;
+              &lt;/div&gt;
+              &lt;div className="profile-head-actions"&gt;
+                &lt;Button icon={&lt;EditOutlined /&gt;} onClick={openEdit}&gt;
+                  {t('profile.editProfile')}
+                &lt;/Button&gt;
+                &lt;Button onClick={signOut}&gt;{t('common.logout')}&lt;/Button&gt;
+              &lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/Card&gt;
+
+          &lt;Card&gt;
+            {stats ? (
+              &lt;div className="profile-stats"&gt;
+                &lt;div&gt;</pre><div class="footer">第 48 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>                  &lt;b&gt;{stats.favorites}&lt;/b&gt;
+                  &lt;span&gt;{t('profile.favorites')}&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div&gt;
+                  &lt;b&gt;{stats.routes}&lt;/b&gt;
+                  &lt;span&gt;{t('profile.history')}&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div&gt;
+                  &lt;b&gt;{stats.posts}&lt;/b&gt;
+                  &lt;span&gt;{t('profile.myPosts')}&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div&gt;
+                  &lt;b&gt;{stats.followers}&lt;/b&gt;
+                  &lt;span&gt;{t('profile.followers')}&lt;/span&gt;
+                &lt;/div&gt;
+                &lt;div&gt;
+                  &lt;b&gt;{stats.following}&lt;/b&gt;
+                  &lt;span&gt;{t('profile.following')}&lt;/span&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            ) : (
+              &lt;Skeleton active paragraph={{ rows: 2 }} /&gt;
+            )}
+          &lt;/Card&gt;
+
+          &lt;Button block icon={&lt;GlobalOutlined /&gt;} onClick={switchLanguage}&gt;
+            {i18n.language === 'zh' ? t('profile.switchToEn') : t('profile.switchToZh')}
+          &lt;/Button&gt;
+        &lt;/div&gt;
+
+        &lt;Card&gt;
+          &lt;Tabs
+            activeKey={tab}
+            onChange={setTab}
+            items={[
+              {
+                key: 'posts',
+                label: `${t('profile.myPosts')} (${stats?.posts ?? 0})`,
+                children: loading ? (
+                  &lt;Skeleton active /&gt;
+                ) : !posts || posts.items.length === 0 ? (
+                  &lt;Empty description={t('user.noPosts')} /&gt;
+                ) : (
+                  &lt;&gt;
+                    &lt;div className="blog-grid"&gt;
+                      {posts.items.map((b) =&gt; (
+                        &lt;BlogCard
+                          key={b.id}
+                          blog={b}
+                          currentUserId={user.id}</pre><div class="footer">第 49 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>                          onLike={toggleLike}
+                          onEdit={(item) =&gt; {
+                            setEditing(item);
+                            setEditorOpen(true);
+                          }}
+                          onDelete={removePost}
+                        /&gt;
+                      ))}
+                    &lt;/div&gt;
+                    &lt;div className="pagination-row"&gt;
+                      &lt;Button
+                        disabled={postPage &lt;= 1}
+                        onClick={() =&gt; setPostPage((p) =&gt; Math.max(1, p - 1))}
+                      &gt;
+                        {t('common.back')}
+                      &lt;/Button&gt;
+                      &lt;span&gt;
+                        {posts.page} / {Math.max(1, Math.ceil(posts.total / posts.pageSize))}
+                      &lt;/span&gt;
+                      &lt;Button
+                        disabled={posts.page * posts.pageSize &gt;= posts.total}
+                        onClick={() =&gt; setPostPage((p) =&gt; p + 1)}
+                      &gt;
+                        {t('blog.readMore')}
+                      &lt;/Button&gt;
+                    &lt;/div&gt;
+                  &lt;/&gt;
+                ),
+              },
+              {
+                key: 'favorites',
+                label: `${t('profile.myFavorites')} (${favorites.length})`,
+                children:
+                  favorites.length === 0 ? (
+                    &lt;Empty description={t('profile.loginToView')} /&gt;
+                  ) : (
+                    &lt;div className="favorite-list"&gt;
+                      {favorites.map((p) =&gt; (
+                        &lt;div key={p.id} className="favorite-item"&gt;
+                          &lt;div&gt;
+                            &lt;b&gt;{i18n.language === 'zh' ? p.nameCn : p.nameEn}&lt;/b&gt;
+                            &lt;div className="author-sub"&gt;
+                              {i18n.language === 'zh' ? p.descriptionCn : p.descriptionEn}
+                            &lt;/div&gt;
+                          &lt;/div&gt;
+                          &lt;Button size="small" onClick={() =&gt; void removeFavorite(p)}&gt;
+                            {t('profile.removeFavorite')}
+                          &lt;/Button&gt;
+                        &lt;/div&gt;
+                      ))}</pre><div class="footer">第 50 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>                    &lt;/div&gt;
+                  ),
+              },
+            ]}
+          /&gt;
+        &lt;/Card&gt;
+      &lt;/div&gt;
+
+      &lt;Modal
+        title={t('profile.editProfile')}
+        open={editOpen}
+        onCancel={() =&gt; setEditOpen(false)}
+        onOk={saveProfile}
+        confirmLoading={saving}
+        okText={t('common.save')}
+        cancelText={t('common.cancel')}
+      &gt;
+        &lt;Form layout="vertical"&gt;
+          &lt;Form.Item label={t('profile.avatar')}&gt;
+            &lt;div className="avatar-edit"&gt;
+              &lt;Avatar size={72} src={avatarUrl}&gt;
+                {nickname?.[0]}
+              &lt;/Avatar&gt;
+              &lt;Upload showUploadList={false} accept="image/*" customRequest={uploadAvatar} beforeUpl
+    oad={beforeAvatar}&gt;
+                &lt;Button icon={&lt;UploadOutlined /&gt;}&gt;{t('profile.avatar')}&lt;/Button&gt;
+              &lt;/Upload&gt;
+            &lt;/div&gt;
+          &lt;/Form.Item&gt;
+          &lt;Form.Item label={t('profile.nickname')}&gt;
+            &lt;Input
+              value={nickname}
+              maxLength={50}
+              showCount
+              onChange={(e) =&gt; setNickname(e.target.value)}
+            /&gt;
+          &lt;/Form.Item&gt;
+        &lt;/Form&gt;
+      &lt;/Modal&gt;
+
+      &lt;BlogEditor
+        open={editorOpen}
+        initial={editing}
+        onClose={() =&gt; setEditorOpen(false)}
+        onSaved={() =&gt; {
+          setEditorOpen(false);
+          setPostPage(1);
+          void loadPosts(1);
+          void loadStats();
+        }}</pre><div class="footer">第 51 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>      /&gt;
+    &lt;/div&gt;
+  );
+}
+// ===== web/src/pages/GuidePage.tsx =====
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button, Input, Select, Spin, message } from 'antd';
+import { SendOutlined, StopOutlined, PlusOutlined } from '@ant-design/icons';
+import { api, ApiError } from '../api/client';
+import {
+  cancelRun,
+  confirmPlan,
+  createRun,
+  getConversation,
+  getRun,
+  listConversations,
+  newRequestId,
+  streamRun,
+  type AgentConversation,
+  type AgentEvent,
+  type AgentPlan,
+} from '../api/agent';
+import { useAuth } from '../context/AuthContext';
+import PlanCard from '../components/PlanCard';
+
+const CONVERSATION_KEY = 'agentConversationId';
+
+interface ChatItem {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  plan?: AgentPlan;
+  planVersion?: number;
+  runId?: number;
+  status?: 'streaming' | 'done' | 'error' | 'canceled';
+  error?: string;
+}
+
+export default function GuidePage() {
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const [items, setItems] = useState&lt;ChatItem[]&gt;([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState&lt;number | null&gt;(null);
+  const [conversations, setConversations] = useState&lt;AgentConversation[]&gt;([]);
+  const [toolStatus, setToolStatus] = useState('');
+  const [activeRunId, setActiveRunId] = useState&lt;number | null&gt;(null);
+  const [confirmingRunId, setConfirmingRunId] = useState&lt;number | null&gt;(null);</pre><div class="footer">第 52 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>  const [confirmedRoutes, setConfirmedRoutes] = useState&lt;Record&lt;number, number&gt;&gt;({});
+  const bottomRef = useRef&lt;HTMLDivElement&gt;(null);
+  const abortRef = useRef&lt;AbortController | null&gt;(null);
+  const lastSeqRef = useRef(0);
+  const stoppedRef = useRef(false);
+  const loadedRef = useRef(false);
+  const language = (i18n.language === 'zh' ? 'zh' : 'en') as 'zh' | 'en';
+
+  useEffect(() =&gt; {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [items, sending, toolStatus]);
+
+  useEffect(() =&gt; {
+    if (loadedRef.current || !user) return;
+    loadedRef.current = true;
+    void refreshConversations();
+    const stored = Number(localStorage.getItem(CONVERSATION_KEY));
+    if (stored &gt; 0) {
+      void loadConversation(stored).catch(() =&gt; {
+        localStorage.removeItem(CONVERSATION_KEY);
+      });
+    }
+  }, [user]);
+
+  const refreshConversations = async () =&gt; {
+    try {
+      const page = await listConversations();
+      setConversations(page.items || []);
+    } catch {
+      // The conversation list is optional; chat still works without it.
+    }
+  };
+
+  const loadConversation = async (id: number) =&gt; {
+    const conv = await getConversation(id);
+    setConversationId(conv.id);
+    localStorage.setItem(CONVERSATION_KEY, String(conv.id));
+    const next: ChatItem[] = [];
+    for (const m of conv.messages || []) {
+      if (m.role === 'user') {
+        next.push({ id: `m-${m.id}`, role: 'user', content: m.content, status: 'done' });
+      } else if (m.content) {
+        next.push({ id: `m-${m.id}`, role: 'assistant', content: m.content, status: 'done' });
+      }
+    }
+    // Reconnect to a run that was still streaming when the page was closed.
+    const active = (conv.messages || []).find((m) =&gt; m.status === 'streaming' &amp;&amp; m.runId);
+    if (conv.plan &amp;&amp; !active) {
+      next.push({
+        id: `plan-${conv.id}-${conv.planVersion}`,</pre><div class="footer">第 53 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        role: 'assistant',
+        content: '',
+        plan: conv.plan,
+        planVersion: conv.planVersion,
+        status: 'done',
+      });
+    }
+    setItems(next);
+
+    if (active?.runId) {
+      void resumeRun(active.runId);
+    }
+  };
+
+  const newChat = () =&gt; {
+    abortRef.current?.abort();
+    stoppedRef.current = true;
+    if (activeRunId) {
+      void cancelRun(activeRunId).catch(() =&gt; {
+        // The run may already be terminal.
+      });
+    }
+    setItems([]);
+    setConversationId(null);
+    setActiveRunId(null);
+    setToolStatus('');
+    setSending(false);
+    localStorage.removeItem(CONVERSATION_KEY);
+  };
+
+  const patchItem = (id: string, updater: (item: ChatItem) =&gt; ChatItem) =&gt; {
+    setItems((prev) =&gt; prev.map((item) =&gt; (item.id === id ? updater(item) : item)));
+  };
+
+  const finishStreaming = (assistantId: string) =&gt; {
+    patchItem(assistantId, (item) =&gt;
+      item.status === 'streaming'
+        ? { ...item, status: stoppedRef.current ? 'canceled' : 'done' }
+        : item,
+    );
+    setSending(false);
+    setActiveRunId(null);
+    setToolStatus('');
+    abortRef.current = null;
+  };
+
+  const send = async () =&gt; {
+    const question = input.trim();
+    if (!question || sending) return;
+    if (!user) {</pre><div class="footer">第 54 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>      message.warning(t('profile.loginToView'));
+      return;
+    }
+    setInput('');
+    const assistantId = newRequestId();
+    setItems((prev) =&gt; [
+      ...prev,
+      { id: newRequestId(), role: 'user', content: question, status: 'done' },
+      { id: assistantId, role: 'assistant', content: '', status: 'streaming' },
+    ]);
+    setSending(true);
+    setToolStatus(t('guide.thinking'));
+    stoppedRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const snapshot = await createRun({
+        conversationId: conversationId ?? undefined,
+        message: question,
+        clientRequestId: newRequestId(),
+      });
+      setConversationId(snapshot.conversationId);
+      localStorage.setItem(CONVERSATION_KEY, String(snapshot.conversationId));
+      setActiveRunId(snapshot.runId);
+      patchItem(assistantId, (item) =&gt; ({
+        ...item,
+        runId: snapshot.runId,
+        content: snapshot.output || item.content,
+        plan: snapshot.plan || item.plan,
+        planVersion: snapshot.planVersion || item.planVersion,
+      }));
+
+      if (stoppedRef.current) {
+        await cancelRun(snapshot.runId);
+        return;
+      }
+
+      lastSeqRef.current = 0;
+      await streamRun(
+        snapshot.runId,
+        (event) =&gt; handleEvent(assistantId, event),
+        controller.signal,
+      );
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') {
+        patchItem(assistantId, (item) =&gt; ({ ...item, status: 'canceled' }));
+      } else if (e instanceof ApiError &amp;&amp; e.status === 503) {
+        await fallbackLegacy(assistantId, question);
+      } else {</pre><div class="footer">第 55 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>        const text = (e as Error).message || t('guide.failed');
+        patchItem(assistantId, (item) =&gt; ({
+          ...item,
+          status: 'error',
+          error: text,
+          content: item.content || '',
+        }));
+        message.error(text);
+      }
+    } finally {
+      finishStreaming(assistantId);
+      void refreshConversations();
+    }
+  };
+
+  const resumeRun = async (runId: number) =&gt; {
+    if (sending) return;
+    try {
+      const snapshot = await getRun(runId, false);
+      if (!['queued', 'running', 'canceling'].includes(snapshot.status)) {
+        return;
+      }
+      const assistantId = `resume-${runId}`;
+      setItems((prev) =&gt; {
+        if (prev.some((item) =&gt; item.id === assistantId)) return prev;
+        return [
+          ...prev,
+          {
+            id: assistantId,
+            role: 'assistant',
+            content: snapshot.output,
+            plan: snapshot.plan,
+            planVersion: snapshot.planVersion,
+            runId,
+            status: 'streaming',
+          },
+        ];
+      });
+      setSending(true);
+      setActiveRunId(runId);
+      setToolStatus(t('guide.thinking'));
+      stoppedRef.current = false;
+      const controller = new AbortController();
+      abortRef.current = controller;
+      lastSeqRef.current = 0;
+      try {
+        await streamRun(runId, (event) =&gt; handleEvent(assistantId, event), controller.signal);
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') {
+          patchItem(assistantId, (item) =&gt; ({</pre><div class="footer">第 56 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>            ...item,
+            status: 'error',
+            error: (e as Error).message || t('guide.failed'),
+          }));
+        }
+      } finally {
+        finishStreaming(assistantId);
+      }
+    } catch {
+      // The run finished while the page was loading.
+    }
+  };
+
+  const handleEvent = (assistantId: string, event: AgentEvent) =&gt; {
+    if (event.seq &gt; 0 &amp;&amp; event.seq &lt;= lastSeqRef.current) return;
+    if (event.seq &gt; lastSeqRef.current) lastSeqRef.current = event.seq;
+    const data = event.data as {
+      content?: string;
+      name?: string;
+      ok?: boolean;
+      plan?: AgentPlan;
+      version?: number;
+      message?: string;
+      output?: string;
+      status?: string;
+      planVersion?: number;
+      error?: { message?: string };
+    };
+
+    switch (event.type) {
+      case 'snapshot': {
+        const terminal =
+          !!data.status &amp;&amp;
+          ['succeeded', 'failed', 'canceled', 'interrupted'].includes(data.status);
+        patchItem(assistantId, (item) =&gt; ({
+          ...item,
+          content: data.output || item.content,
+          plan: data.plan || item.plan,
+          planVersion: data.planVersion || item.planVersion,
+          status: terminal
+            ? data.status === 'succeeded'
+              ? 'done'
+              : 'error'
+            : item.status,
+          error:
+            terminal &amp;&amp; data.status !== 'succeeded'
+              ? data.error?.message || t('guide.failed')
+              : item.error,
+        }));
+        break;</pre><div class="footer">第 57 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>      }
+      case 'delta':
+        if (data.content) {
+          setToolStatus('');
+          patchItem(assistantId, (item) =&gt; ({ ...item, content: item.content + data.content }));
+        }
+        break;
+      case 'thinking':
+        setToolStatus(t('guide.thinking'));
+        break;
+      case 'tool_call':
+        setToolStatus(`${t('guide.querying')} ${data.name || ''}`);
+        break;
+      case 'tool_result':
+        setToolStatus(data.ok ? t('guide.toolDone') : t('guide.toolFailed'));
+        break;
+      case 'plan':
+        if (data.plan) {
+          patchItem(assistantId, (item) =&gt; ({
+            ...item,
+            plan: data.plan,
+            planVersion: data.version || data.plan?.version,
+          }));
+        }
+        break;
+      case 'done':
+        setToolStatus('');
+        patchItem(assistantId, (item) =&gt; ({ ...item, status: 'done' }));
+        break;
+      case 'error':
+        setToolStatus('');
+        patchItem(assistantId, (item) =&gt; ({
+          ...item,
+          status: 'error',
+          error: data.message || t('guide.failed'),
+        }));
+        break;
+      default:
+        break;
+    }
+  };
+
+  const fallbackLegacy = async (assistantId: string, question: string) =&gt; {
+    try {
+      const resp = await api.post&lt;{ sessionId: number; reply: string }&gt;('/api/guide/chat', {
+        sessionId: conversationId ?? undefined,
+        question,
+      });
+      setConversationId(resp.sessionId);
+      localStorage.setItem(CONVERSATION_KEY, String(resp.sessionId));</pre><div class="footer">第 58 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>      patchItem(assistantId, (item) =&gt; ({ ...item, content: resp.reply, status: 'done' }));
+    } catch (e) {
+      const text = (e as Error).message || t('guide.failed');
+      patchItem(assistantId, (item) =&gt; ({ ...item, status: 'error', error: text }));
+      message.error(text);
+    }
+  };
+
+  const stop = async () =&gt; {
+    stoppedRef.current = true;
+    abortRef.current?.abort();
+    if (activeRunId) {
+      try {
+        await cancelRun(activeRunId);
+      } catch {
+        // The stream may already be closed.
+      }
+    }
+    setSending(false);
+    setToolStatus('');
+  };
+
+  const confirm = async (item: ChatItem) =&gt; {
+    if (!item.runId || !item.plan) return;
+    setConfirmingRunId(item.runId);
+    try {
+      const result = await confirmPlan(item.runId, item.plan.version);
+      setConfirmedRoutes((prev) =&gt; ({ ...prev, [item.runId as number]: result.routeId }));
+      message.success(t('guide.planConfirmed'));
+    } catch (e) {
+      message.error((e as Error).message);
+    } finally {
+      setConfirmingRunId(null);
+    }
+  };
+
+  return (
+    &lt;div className="guide-shell"&gt;
+      &lt;div className="section-title"&gt;{t('guide.title')}&lt;/div&gt;
+      &lt;div className="agent-toolbar"&gt;
+        &lt;Select
+          size="small"
+          allowClear
+          placeholder={t('guide.history')}
+          value={conversationId ?? undefined}
+          onChange={(value) =&gt; {
+            if (value) void loadConversation(value);
+          }}
+          onClear={newChat}
+          options={conversations.map((c) =&gt; ({ value: c.id, label: c.title }))}</pre><div class="footer">第 59 页 共 60 页</div></div><div class="page"><div class="header">南粤文化入境游 AI 智能伴游系统 V1.0 源程序</div><pre>          style={{ minWidth: 220, flex: 1 }}
+        /&gt;
+        &lt;Button size="small" icon={&lt;PlusOutlined /&gt;} onClick={newChat}&gt;
+          {t('guide.newChat')}
+        &lt;/Button&gt;
+      &lt;/div&gt;
+
+      &lt;div className="chat-box"&gt;
+        &lt;div className="bubble assistant"&gt;{t('guide.welcome')}&lt;/div&gt;
+        {items.map((item) =&gt; (
+          &lt;div key={item.id} className={`agent-message ${item.role}`}&gt;
+            {item.content &amp;&amp; &lt;div className={`bubble ${item.role}`}&gt;{item.content}&lt;/div&gt;}
+            {item.role === 'assistant' &amp;&amp; item.status === 'streaming' &amp;&amp; (
+              &lt;div className="agent-status"&gt;
+                &lt;Spin size="small" /&gt; {toolStatus || t('guide.thinking')}
+              &lt;/div&gt;
+            )}
+            {item.error &amp;&amp; &lt;div className="agent-error"&gt;{item.error}&lt;/div&gt;}
+            {item.plan &amp;&amp; (
+              &lt;PlanCard
+                plan={item.plan}
+                language={language}
+                confirming={confirmingRunId === item.runId}
+                confirmedRouteId={item.runId ? confirmedRoutes[item.runId] : undefined}
+                onConfirm={() =&gt; void confirm(item)}
+              /&gt;
+            )}
+          &lt;/div&gt;
+        ))}
+        &lt;div ref={bottomRef} /&gt;
+      &lt;/div&gt;
+
+      &lt;div className="chat-input-bar"&gt;
+        &lt;Input
+          value={input}
+          onChange={(e) =&gt; setInput(e.target.value)}
+          onPressEnter={() =&gt; void send()}
+          placeholder={t('guide.placeholder')}
+        /&gt;
+        {sending ? (
+          &lt;Button danger icon={&lt;StopOutlined /&gt;} onClick={() =&gt; void stop()}&gt;
+            {t('guide.stop')}
+          &lt;/Button&gt;
+        ) : (
+          &lt;Button type="primary" icon={&lt;SendOutlined /&gt;} onClick={() =&gt; void send()} /&gt;
+        )}
+      &lt;/div&gt;
+    &lt;/div&gt;
+  );
+}</pre><div class="footer">第 60 页 共 60 页</div></div></body>
+</html>
